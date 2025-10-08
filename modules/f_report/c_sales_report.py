@@ -22,8 +22,8 @@ class c_sales_report(object):
             and produk_id != None
             and tanggal != None
         ):
-            filter_header = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND bb.produk_id = {produk_id} AND tanggal_invoice < '{tanggal}'"""
-            filter_detail = f"""WHERE bb.company_id = {company_id} AND bb.cabang_id = {cabang_id} AND aa.produk_id = {produk_id} AND aa.tanggal_invoice < '{tanggal}'"""
+            filter_header = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND bb.produk_id = {produk_id} AND tanggal_invoice <= '{tanggal}'"""
+            filter_detail = f"""WHERE bb.company_id = {company_id} AND bb.cabang_id = {cabang_id} AND aa.produk_id = {produk_id} AND aa.tanggal_invoice <= '{tanggal}'"""
 
             sql_product = f"""SELECT nama_produk from master_produk WHERE id_produk = {produk_id}"""
 
@@ -46,6 +46,8 @@ class c_sales_report(object):
             + filter_header
             + """) xx"""
         )
+
+        print(sql_header)
 
         sql_detail = (
             f"""SELECT
