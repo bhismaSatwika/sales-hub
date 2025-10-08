@@ -322,6 +322,15 @@ class c_subsidiary_inventory_receipt_transfer(object):
 
     async def release(self, data):
         data_where_update = data["data_where_update"]
+        get_release_status = f"""
+        SELECT count(*) count from trans_inventory_subsidiary_receipt_transfer
+        WHERE id_trans = '{data_where_update['id_trans']}' and status_release = true
+        """
+        res = await self.db.executeToDict(get_release_status)
+        result = res[0]["count"]
+        if result > 0:
+            message = {"status": "Success", "msg": "Data sudah di release sebelumnya"}
+            return message
 
         try:
             sql_inv_receipt_in = f"""

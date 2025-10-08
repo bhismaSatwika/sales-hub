@@ -260,7 +260,21 @@ class c_subsidiary_inventory_sales_order_release(object):
 
         return data
 
+    async def validate_release(self, id_trans):
+        sql = f"""SELECT count(*) count FROM trans_inventory_subsidiary_sales_order WHERE id_trans = '{id_trans}' AND status_release = TRUE"""
+        res = await self.db.executeToDict(sql)
+        result = res[0]["count"]
+        return result
+
     async def release(self, data):
+        ## validasi transaksi sudah direlease/blm
+        status_release = await self.validate_release(data["id_trans"])
+        if status_release > 0:
+            return {
+                "status": "Success",
+                "detail": "Transaksi sudah direlease sebelumnya",
+            }
+
         ## validasi stok inventory dan jumlah quantity yang akan dirilis
         await self.validasi_quantity(data)
 
@@ -545,9 +559,8 @@ GROUP BY
         new_date = tanggal + timedelta(days=30)
         id_trans_md5 = hashlib.md5(data_kode_iv["id_trans"].encode()).hexdigest()
 
-
-        if self.sales_order["id_pembayaran"] ==1 :
-            new_date = tanggal + timedelta(days=30)
+        if int(self.sales_order["id_pembayaran"]) == 1:
+            new_date = tanggal + timedelta(days=1)
 
         data_invoice = {
             "updateindb": datetime.today(),
@@ -569,7 +582,7 @@ GROUP BY
             "amount_total_outstanding": self.sales_order["harga_total_ppn_pph"],
             "customer_id": self.sales_order["customer_id"],
             "qty": self.sales_order["qty"],
-            "id_pembayaran": self.sales_order["id_pembayaran"]
+            "id_pembayaran": self.sales_order["id_pembayaran"],
         }
 
         sql_insert_invoice = self.db.genStrInsertSingleObject(
