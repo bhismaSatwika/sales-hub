@@ -19,8 +19,10 @@ class c_holding_inventory_submit(object):
         self.db = Db()
         self.kendoParse = kendo_parse.KendoParse
 
-    async def read(self, orderby, limit, offset, filter, filter_other="", filter_other_conj=""):
-        if orderby == None or orderby == '':
+    async def read(
+        self, orderby, limit, offset, filter, filter_other="", filter_other_conj=""
+    ):
+        if orderby == None or orderby == "":
             orderby = "zz.updateindb DESC"
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
@@ -88,7 +90,7 @@ class c_holding_inventory_submit(object):
         data = {"data": result, "count": result_count[0]["count"]}
         return data
 
-    async def get_id_trans_kode(self, company_id,cabang_id,kode_trans, tahun, bulan):
+    async def get_id_trans_kode(self, company_id, cabang_id, kode_trans, tahun, bulan):
         # bulan = datetime.now().month
         # tahun = datetime.now().year
 
@@ -108,7 +110,7 @@ class c_holding_inventory_submit(object):
         id_trans = (
             str(kode_company[0]["kode"])
             + "."
-            +str(cabang_id)
+            + str(cabang_id)
             + "."
             + kode_trans
             + "."
@@ -124,7 +126,6 @@ class c_holding_inventory_submit(object):
         }
 
         return data_kode
-    
 
     async def create(self, data, files: List[UploadFile], listFilename: List[str]):
 
@@ -133,7 +134,9 @@ class c_holding_inventory_submit(object):
         tahun = tanggal.year
         bulan = tanggal.month
 
-        data_kode = await self.get_id_trans_kode(data["company_id"],data["cabang_id"],"IS", tahun, bulan)
+        data_kode = await self.get_id_trans_kode(
+            data["company_id"], data["cabang_id"], "IS", tahun, bulan
+        )
 
         data.update(
             {
@@ -168,7 +171,9 @@ class c_holding_inventory_submit(object):
 
         # print(data)
 
-        sqlString = self.db.genStrInsertSingleObject(data, "trans_inventory_holding_submit")
+        sqlString = self.db.genStrInsertSingleObject(
+            data, "trans_inventory_holding_submit"
+        )
 
         try:
             await self.db.executeQuery(sqlString)
@@ -184,7 +189,6 @@ class c_holding_inventory_submit(object):
             return "success"
         except Exception as e:
             raise HTTPException(400, ("The error is: ", str(e)))
-
 
     async def update(self, data, files: List[UploadFile], listFilename: List[str]):
         data.update(
@@ -235,10 +239,11 @@ class c_holding_inventory_submit(object):
             return "success"
         except Exception as e:
             raise HTTPException(400, ("The error is: ", str(e)))
-        
 
     async def delete(self, data_where):
-        sqlString = self.db.genDeleteObject(data_where, "trans_inventory_holding_submit")
+        sqlString = self.db.genDeleteObject(
+            data_where, "trans_inventory_holding_submit"
+        )
 
         sqlString2 = self.db.genDeleteObject(data_where, "files_upload")
 
@@ -250,9 +255,7 @@ class c_holding_inventory_submit(object):
         try:
             if len(files) > 0:
                 for file in files:
-                    path = (
-                        params.loc["file_inventory_submit"] + "/" + file["files"]
-                    )
+                    path = params.loc["file_inventory_submit"] + "/" + file["files"]
                     print(path)
                     os.remove(path)
                 await self.db.executeTrans([sqlString, sqlString2])
@@ -263,7 +266,6 @@ class c_holding_inventory_submit(object):
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
-    
 
     async def delete_file(self, data):
         tbl = "files_upload"
@@ -278,7 +280,6 @@ class c_holding_inventory_submit(object):
         except Exception as e:
             print(str(e))
             raise HTTPException(400, ("The error is: ", str(e)))
-        
 
     async def read_files(self, id_trans):
         sql = f""" SELECT file_name, files FROM files_upload where id_trans = '{id_trans}' """
@@ -305,9 +306,20 @@ class c_holding_inventory_submit(object):
             raise HTTPException(400, "The error is: " + str(e))
 
     async def release(self, data):
+        get_status_release = f"""SELECT count(*) count FROM trans_inventory_holding_submit WHERE id_trans = '{data["id_trans"]}' AND status_release = true"""
+
+        status_release = await self.db.executeToDict(get_status_release)
+        res = status_release[0]["count"]
+
+        if res > 0:
+            return {
+                "status": "Success",
+                "detail": "Transaksi sudah direlease sebelumnya",
+            }
+
         data_where_update = data["data_where_update"]
         data_where_delete = data["data_where_delete"]
-        
+
         try:
 
             sql_inv_submit = f"""SELECT 
@@ -346,27 +358,26 @@ class c_holding_inventory_submit(object):
                 "tanggal": result_inv_submit["inv_submit"][0]["tanggal"],
             }
 
-            sql_insert_inv_mutasi = self.db.genStrInsertSingleObject(data_inv_mutasi, "trans_inventory_detail_mutasi")
+            sql_insert_inv_mutasi = self.db.genStrInsertSingleObject(
+                data_inv_mutasi, "trans_inventory_detail_mutasi"
+            )
             await self.db.executeQuery(sql_insert_inv_mutasi)
 
-            
         except Exception as e:
             message = {"status": False, "msg": "Erorr saat insert mutasi"}
             print(str(e))
             raise HTTPException(status_code=400, detail=str(e))
 
         try:
-        
+
             sql_update_status_release_inv_submit = f"""UPDATE trans_inventory_holding_submit SET status_release = 'true'
             WHERE id_trans = '{data_where_update['id_trans']}'"""
             # await self.db.executeQuery(sql_update_status_release_inv_submit)
 
-        
             sql_delete_inv_detail = f"""DELETE FROM trans_inventory_detail 
                                     WHERE company_id = {data_where_delete['company_id']} AND cabang_id = {data_where_delete['cabang_id']} AND produk_id = {data_where_delete['produk_id']}"""
             # await self.db.executeQuery(sql_delete_inv_detail)
 
-        
             sql_detail_mutasi = f"""SELECT produk_id,
                                         company_id,
                                         cabang_id,
@@ -393,41 +404,48 @@ class c_holding_inventory_submit(object):
                 "detail_mutasi": await self.db.executeToDict(sql_detail_mutasi)
             }
 
-            
             data_inv_detail = {
                 "produk_id": data_detail_mutasi["detail_mutasi"][0]["produk_id"],
                 "company_id": data_detail_mutasi["detail_mutasi"][0]["company_id"],
                 "cabang_id": data_detail_mutasi["detail_mutasi"][0]["cabang_id"],
                 "qty": int(data_detail_mutasi["detail_mutasi"][0]["qty"]),
-                "harga_satuan": int(data_detail_mutasi["detail_mutasi"][0]["harga_satuan"]),
-                "harga_total": int(data_detail_mutasi["detail_mutasi"][0]["harga_total"]),
+                "harga_satuan": int(
+                    data_detail_mutasi["detail_mutasi"][0]["harga_satuan"]
+                ),
+                "harga_total": int(
+                    data_detail_mutasi["detail_mutasi"][0]["harga_total"]
+                ),
             }
 
-            sql_insert_inv_detail = self.db.genStrInsertSingleObject(data_inv_detail, "trans_inventory_detail")
+            sql_insert_inv_detail = self.db.genStrInsertSingleObject(
+                data_inv_detail, "trans_inventory_detail"
+            )
             # await self.db.executeQuery(sql_insert_inv_detail)
 
-
-            # eksekusi all transaksi insert, update, delete    
-            trans = await self.db.executeTrans([
-                sql_update_status_release_inv_submit,
-                sql_delete_inv_detail,
-                sql_insert_inv_detail
-            ])
+            # eksekusi all transaksi insert, update, delete
+            trans = await self.db.executeTrans(
+                [
+                    sql_update_status_release_inv_submit,
+                    sql_delete_inv_detail,
+                    sql_insert_inv_detail,
+                ]
+            )
 
             if trans["status"] == False:
                 message = {"status": False, "msg": "Eror. Cek query."}
                 raise HTTPException(400, str(trans["detail"]))
-                
 
             message = {"status": True, "msg": "success"}
 
         except Exception as e1:
 
             where_del_mutasi = {
-                'id_trans' : data_detail_mutasi["detail_mutasi"][0]["id_trans"],
+                "id_trans": data_detail_mutasi["detail_mutasi"][0]["id_trans"],
             }
 
-            sql_del_mutasi = await self.db.genDeleteObject(where_del_mutasi,'trans_inventory_detail_mutasi')
+            sql_del_mutasi = await self.db.genDeleteObject(
+                where_del_mutasi, "trans_inventory_detail_mutasi"
+            )
 
             try:
                 await self.db.executeTrans([sql_del_mutasi])
@@ -435,14 +453,11 @@ class c_holding_inventory_submit(object):
                 print(str(e2))
                 raise HTTPException(400, ("error ketika delete di mutasi: ", str(e2)))
 
-            
             message = {"status": False, "msg": "Eror. Cek query."}
             print(str(e1))
             raise HTTPException(status_code=400, detail=str(e1))
 
-        
         return message
-    
 
     async def release_test(self):
         try:
@@ -537,7 +552,9 @@ class c_holding_inventory_submit(object):
                 "company_id": result_detail_mutasi["detail_mutasi"][0]["company_id"],
                 "cabang_id": result_detail_mutasi["detail_mutasi"][0]["cabang_id"],
                 "qty": result_detail_mutasi["detail_mutasi"][0]["qty"],
-                "harga_satuan": result_detail_mutasi["detail_mutasi"][0]["harga_satuan"],
+                "harga_satuan": result_detail_mutasi["detail_mutasi"][0][
+                    "harga_satuan"
+                ],
                 "harga_total": result_detail_mutasi["detail_mutasi"][0]["harga_total"],
                 "updateindb": datetime.today(),
                 "userupdate": auth.AuthAction.get_data_params("username"),
@@ -668,9 +685,11 @@ async def release(request: Request):
 
 
 @app.get("/api/f_trans/c_holding_inventory_submit/get_id_trans_kode")
-async def get_id_trans_kode(company_id,cabang_id, kode_trans, tahun, bulan):
+async def get_id_trans_kode(company_id, cabang_id, kode_trans, tahun, bulan):
     ob_data = c_holding_inventory_submit()
-    return await ob_data.get_id_trans_kode(company_id,cabang_id,kode_trans, tahun, bulan)
+    return await ob_data.get_id_trans_kode(
+        company_id, cabang_id, kode_trans, tahun, bulan
+    )
 
 
 @app.post("/api/f_trans/c_holding_inventory_submit/release_test")
