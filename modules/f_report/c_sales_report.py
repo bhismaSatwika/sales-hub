@@ -1,12 +1,13 @@
 import base64
 
 from fastapi import Query
+from fastapi.responses import StreamingResponse
 
 from library import *
 import os
 from library.router import app
 from library.db import Db
-from modules.f_report.create_sales_report import PDF
+from modules.f_report.create_sales_report_percompany import PDF
 from pydantic import BaseModel
 
 
@@ -15,11 +16,17 @@ class c_sales_report(object):
         self.db = Db()
 
     async def sales_report(self, company_id, cabang_id, produk_id, tanggal):
-        if company_id != None and cabang_id != None and produk_id != None and tanggal !=None:
-            filter_header = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND produk_id = {produk_id} AND tanggal_invoice = '{tanggal}'"""
-            filter_detail = f"""WHERE bb.company_id = {company_id} AND bb.cabang_id = {cabang_id} AND bb.produk_id = {produk_id} AND aa.tanggal_invoice = '{tanggal}'"""
+        if (
+            company_id != None
+            and cabang_id != None
+            and produk_id != None
+            and tanggal != None
+        ):
+            filter_header = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND bb.produk_id = {produk_id} AND tanggal_invoice = '{tanggal}'"""
+            filter_detail = f"""WHERE bb.company_id = {company_id} AND bb.cabang_id = {cabang_id} AND aa.produk_id = {produk_id} AND aa.tanggal_invoice = '{tanggal}'"""
 
-        sql_header = f"""SELECT *,
+        sql_header = (
+            f"""SELECT *,
                             round(sales_total/sales_qty,2)::FLOAT as harga_sat_penj,
                             round(hpp/sales_qty,2)::FLOAT as harga_sat_hpp,
                             sales_total-hpp as margin_total,
@@ -30,9 +37,13 @@ class c_sales_report(object):
                                 sum(aa.qty) sales_qty,
                         sum(bb.harga_total_hpp) as hpp
                     FROM trans_inventory_subsidiary_invoice aa
-                    LEFT JOIN trans_inventory_subsidiary_sales_order bb on aa.id_trans_sales_order=bb.id_trans """+filter_header+""") xx"""
+                    LEFT JOIN trans_inventory_subsidiary_sales_order bb on aa.id_trans_sales_order=bb.id_trans """
+            + filter_header
+            + """) xx"""
+        )
 
-        sql_detail = f"""SELECT
+        sql_detail = (
+            f"""SELECT
                     aa.id_trans,
                     ee.company_id,
                     gg.company_name,
@@ -91,15 +102,24 @@ class c_sales_report(object):
             LEFT JOIN master_company_cabang hh on ee.cabang_id=hh.id_cabang
             LEFT JOIN (select id_user,name from master_user where is_salesman='t') ii on ee.salesman = ii.id_user
             LEFT JOIN master_provinsi jj ON bb.kode_prov = jj.kode_prov
-            LEFT JOIN master_produk_kategori kk ON cc.kategori_produk = kk.id_kategori """+filter_detail
+            LEFT JOIN master_produk_kategori kk ON cc.kategori_produk = kk.id_kategori """
+            + filter_detail
+        )
 
         query_sql_header = await self.db.executeToDict(sql_header)
         query_sql_detail = await self.db.executeToDict(sql_detail)
 
-       
+        pdf = PDF(detail_sales_data=query_sql_detail, resume_sale_data=query_sql_header)
+        pdf_buffer = pdf.generate_report()
+
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename=report.pdf"},
+        )
 
 
-@app.get("/api/f_report/c_sales_report/testing")
+@app.get("/api/f_report/c_sales_report/get_sales_report")
 async def get_sales_report(
     company_id: int = Query(None, alias="company_id"),
     cabang_id: int = Query(None, alias="cabang_id"),
