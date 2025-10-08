@@ -592,6 +592,17 @@ class PDF(FPDF):
             return value.strftime("%d-%m-%Y")
         elif isinstance(value, int):
             return "{:,}".format(value).replace(",", ".")
+        elif isinstance(value, float):
+            formatted = (
+                "{:,.2f}".format(value)
+                .replace(",", " ")
+                .replace(".", ",")
+                .replace(" ", ".")
+            )
+            if formatted.endswith(",00"):
+                formatted = formatted[:-3]
+
+            return formatted
         elif isinstance(value, Decimal):
             value = float(value)
 

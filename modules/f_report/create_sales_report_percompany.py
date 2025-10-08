@@ -8,6 +8,7 @@ import qrcode
 class PDF(FPDF):
     def __init__(
         self,
+        product_name,
         resume_sale_data,
         detail_sales_data,
         orientation="L",
@@ -16,8 +17,8 @@ class PDF(FPDF):
     ):
         super().__init__(orientation, unit, format)
         self.resume_sale_data = resume_sale_data[0]
-
         self.detail_sales_data = detail_sales_data
+        self.product_name = product_name[0]["nama_produk"]
 
     def header(self):
         y = self.get_y()
@@ -29,7 +30,6 @@ class PDF(FPDF):
         self.add_page()
         self.top_data()
         self.sales_data()
-        self.inventory_data()
 
         pdf_bytes = self.output(dest="S")
         pdf_buffer = BytesIO(pdf_bytes)
@@ -57,7 +57,7 @@ class PDF(FPDF):
         self.set_x(full_width - full_width / 1.5)
         self.cell(0, 5, "Quantity (Kg)", align="L", new_x="LMARGIN", new_y="TOP")
         self.set_x(full_width - full_width / 2.5)
-        self.cell(0, 5, "Harga Satuan", align="L", new_x="LMARGIN", new_y="NEXT")
+        self.cell(0, 5, "Nama Produk", align="L", new_x="LMARGIN", new_y="NEXT")
 
         self.cell(
             0,
@@ -80,7 +80,7 @@ class PDF(FPDF):
         self.cell(
             0,
             10,
-            f'Rp. {self.convert_value(self.resume_sale_data["harga_sat_penj"])}',
+            f"{self.convert_value(self.product_name)}",
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -88,23 +88,12 @@ class PDF(FPDF):
 
         self.ln(5)
 
-        self.cell(0, 5, "Total HPP", align="L", new_x="LMARGIN", new_y="TOP")
-        self.set_x(full_width - full_width / 1.5)
         self.cell(0, 5, "HPP Satuan", align="L", new_x="LMARGIN", new_y="TOP")
-        self.set_x(full_width - full_width / 2.5)
+        self.set_x(full_width - full_width / 1.5)
         self.cell(0, 5, "Margin Total", align="L", new_x="LMARGIN", new_y="TOP")
-        self.set_x(full_width - full_width / 4.5)
+        self.set_x(full_width - full_width / 2.5)
         self.cell(0, 5, "Margin Total %", align="L", new_x="LMARGIN", new_y="NEXT")
 
-        self.cell(
-            0,
-            10,
-            f'Rp. {self.convert_value(self.resume_sale_data["hpp"])}',
-            align="L",
-            new_x="LMARGIN",
-            new_y="TOP",
-        )
-        self.set_x(full_width - full_width / 1.5)
         self.cell(
             0,
             10,
@@ -113,7 +102,7 @@ class PDF(FPDF):
             new_x="LMARGIN",
             new_y="TOP",
         )
-        self.set_x(full_width - full_width / 2.5)
+        self.set_x(full_width - full_width / 1.5)
         self.cell(
             0,
             10,
@@ -122,7 +111,7 @@ class PDF(FPDF):
             new_x="LMARGIN",
             new_y="TOP",
         )
-        self.set_x(full_width - full_width / 4.5)
+        self.set_x(full_width - full_width / 2.5)
         self.cell(
             0,
             10,
@@ -131,6 +120,7 @@ class PDF(FPDF):
             new_x="LMARGIN",
             new_y="NEXT",
         )
+        self.set_x(full_width - full_width / 4.5)
 
         self.ln(3)
 
@@ -140,6 +130,10 @@ class PDF(FPDF):
             y1=self.get_y(),
             y2=self.get_y(),
         )
+
+    def sales_data(self):
+        full_width = self.w - self.l_margin - self.r_margin
+        half_width = full_width / 2
 
         ########## SALES DETAIL #############
         self.ln(5)
@@ -236,13 +230,13 @@ class PDF(FPDF):
                 column = 0
                 for datum in data_row:
                     if column == 4:
-                        total_qty += float(datum)
+                        total_qty += datum
                     if column == 7:
-                        total_harga += float(datum)
+                        total_harga += datum
                     if column == 9:
-                        total_hpp += float(datum)
+                        total_hpp += datum
                     if column == 10:
-                        total_margin += float(datum)
+                        total_margin += datum
 
                     a = self.convert_value(datum)
                     row.cell(a, padding=1)
@@ -291,25 +285,37 @@ class PDF(FPDF):
             y2=self.get_y(),
         )
 
-    def inventory_data(self):
-        full_width = self.w - self.l_margin - self.r_margin
-        half_width = full_width / 2
-
     def convert_value(self, value):
-        if isinstance(value, dt.date):
-            return value.strftime("%Y-%m-%d")
-        elif value is None:
+        if value is None:
             return ""
+        elif isinstance(value, dt.date):
+            return value.strftime("%d-%m-%Y")
         elif isinstance(value, int):
             return "{:,}".format(value).replace(",", ".")
         elif isinstance(value, float):
-            return str(value)
+            formatted = (
+                "{:,.2f}".format(value)
+                .replace(",", " ")
+                .replace(".", ",")
+                .replace(" ", ".")
+            )
+            if formatted.endswith(",00"):
+                formatted = formatted[:-3]
+
+            return formatted
         elif isinstance(value, Decimal):
-            if value < 100:
-                return str(value)
-            a = int(value)
-            a = "{:,}".format(a).replace(",", ".")
-            return a
+            value = float(value)
+
+            formatted = (
+                "{:,.2f}".format(value)
+                .replace(",", " ")
+                .replace(".", ",")
+                .replace(" ", ".")
+            )
+            if formatted.endswith(",00"):
+                formatted = formatted[:-3]
+
+            return formatted
 
         return value
 

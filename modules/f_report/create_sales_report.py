@@ -500,20 +500,36 @@ class PDF(FPDF):
         )
 
     def convert_value(self, value):
-        if isinstance(value, dt.date):
-            return value.strftime("%Y-%m-%d")
-        elif value is None:
+        if value is None:
             return ""
+        elif isinstance(value, dt.date):
+            return value.strftime("%d-%m-%Y")
         elif isinstance(value, int):
             return "{:,}".format(value).replace(",", ".")
         elif isinstance(value, float):
-            return str(value)
+            formatted = (
+                "{:,.2f}".format(value)
+                .replace(",", " ")
+                .replace(".", ",")
+                .replace(" ", ".")
+            )
+            if formatted.endswith(",00"):
+                formatted = formatted[:-3]
+
+            return formatted
         elif isinstance(value, Decimal):
-            if value < 100:
-                return str(value)
-            a = int(value)
-            a = "{:,}".format(a).replace(",", ".")
-            return a
+            value = float(value)
+
+            formatted = (
+                "{:,.2f}".format(value)
+                .replace(",", " ")
+                .replace(".", ",")
+                .replace(" ", ".")
+            )
+            if formatted.endswith(",00"):
+                formatted = formatted[:-3]
+
+            return formatted
 
         return value
 
