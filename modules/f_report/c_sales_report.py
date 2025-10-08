@@ -33,65 +33,30 @@ class c_sales_report(object):
                     LEFT JOIN trans_inventory_subsidiary_sales_order bb on aa.id_trans_sales_order=bb.id_trans """+filter_header+""") xx"""
 
         sql_detail = f"""SELECT
-                    aa.id_trans,
-                    ee.company_id,
-                    gg.company_name,
-                    ee.cabang_id,
-                    hh.cabang_name,
-                    aa.tanggal_invoice,
-                    aa.updateindb,
-                    aa.id_trans_sales_order,
-                    aa.id_trans_delivery_order,
-                    aa.tanggal_due_date,
-                    aa.produk_id,
-                    cc.nama_produk as produk,
-                    cc.deskripsi_produk,
-                    kk.kategori as kategori_produk,
-                    aa.qty,
-                    ff.uom_satuan,
-                    ee.harga_satuan,
-                    ee.harga_total,
-                    ee.harga_satuan_hpp,
-                    ee.harga_total_hpp,
-                    ee.harga_total-ee.harga_total_hpp as margin,
-                    round(((ee.harga_total-ee.harga_total_hpp)*100/ee.harga_total::FLOAT)::NUMERIC,2) as percent_margin,
-                    ee.ppn_percent,
-                    ee.ppn_value,
-                    ee.pph_22_percent,
-                    ee.pph_22_value,
-                    ee.harga_total_ppn_pph,
-                    ee.biaya_admin,
-                    aa.amount,
-                    aa.amount_ppn,
-                    aa.amount_pph,
-                    aa.amount_total,
-                    aa.amount_total_outstanding,
-                    CASE 
-                        WHEN aa.complete_payment IS TRUE
-                            THEN 'Done'
-                            ELSE 'Pending'
-                        END as complete_payment,
-                    dd.pembayaran,
-                    ee.salesman as id_salesman,
-                    ii.name as salesman,
-                    bb.nama_customer,
-                    bb.alamat,
-                    jj.nama as provinsi,
-                    bb.npwp,
-                    bb.no_ktp,
-                    bb.account_va,
-                    bb.account_bank_name
-            FROM trans_inventory_subsidiary_invoice aa
-            LEFT JOIN master_customer bb ON aa.customer_id = bb.id_customer
-            LEFT JOIN master_produk cc ON aa.produk_id = cc.id_produk
-            LEFT JOIN master_jenis_pembayaran dd ON aa.id_pembayaran = dd.id_pembayaran
-            LEFT JOIN trans_inventory_subsidiary_sales_order ee ON aa.id_trans_sales_order = ee.id_trans
-            LEFT JOIN master_produk_uom_satuan ff on cc.uom_satuan=ff.id_uom_satuan
-            LEFT JOIN master_company gg on ee.company_id=gg.id_company
-            LEFT JOIN master_company_cabang hh on ee.cabang_id=hh.id_cabang
-            LEFT JOIN (select id_user,name from master_user where is_salesman='t') ii on ee.salesman = ii.id_user
-            LEFT JOIN master_provinsi jj ON bb.kode_prov = jj.kode_prov
-            LEFT JOIN master_produk_kategori kk ON cc.kategori_produk = kk.id_kategori """+filter_detail
+                            aa.id_trans AS invoice_number
+                            ,bb.nama_customer
+                            ,hh.cabang_name
+                            ,gg.company_name
+                            ,aa.qty
+                            ,ff.uom_satuan
+                            ,ee.harga_satuan
+                            ,ee.harga_total
+                            ,ee.harga_satuan_hpp
+                            ,ee.harga_total_hpp
+                            ,ee.harga_total-ee.harga_total_hpp as margin
+                            ,round(((ee.harga_total-ee.harga_total_hpp)*100/ee.harga_total::FLOAT)::NUMERIC,2) as percent_margin
+                        FROM
+                            trans_inventory_subsidiary_invoice aa
+                            LEFT JOIN master_customer bb ON aa.customer_id = bb.id_customer
+                            LEFT JOIN master_produk cc ON aa.produk_id = cc.id_produk
+                            LEFT JOIN master_jenis_pembayaran dd ON aa.id_pembayaran = dd.id_pembayaran
+                            LEFT JOIN trans_inventory_subsidiary_sales_order ee ON aa.id_trans_sales_order = ee.id_trans
+                            LEFT JOIN master_produk_uom_satuan ff ON cc.uom_satuan = ff.id_uom_satuan
+                            LEFT JOIN master_company gg ON ee.company_id = gg.id_company
+                            LEFT JOIN master_company_cabang hh ON ee.cabang_id = hh.id_cabang
+                            LEFT JOIN ( SELECT id_user, NAME FROM master_user WHERE is_salesman = 't' ) ii ON ee.salesman = ii.id_user
+                            LEFT JOIN master_provinsi jj ON bb.kode_prov = jj.kode_prov
+                            LEFT JOIN master_produk_kategori kk ON cc.kategori_produk = kk.id_kategori """+filter_detail
 
         query_sql_header = await self.db.executeToDict(sql_header)
         query_sql_detail = await self.db.executeToDict(sql_detail)
