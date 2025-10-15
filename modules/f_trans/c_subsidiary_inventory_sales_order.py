@@ -1,4 +1,5 @@
 from datetime import datetime
+import io
 import json
 import mimetypes
 from typing import List, Optional
@@ -14,6 +15,8 @@ from modules import f_trans
 import asyncio
 from modules.f_trans.sales_order_create_pdf import PDF
 from modules.f_trans.delivery_order_create_pdf import PDF as PDF_DO
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font
 
 
 class c_subsidiary_inventory_sales_order(object):
@@ -986,6 +989,130 @@ class c_subsidiary_inventory_sales_order(object):
         path = path_parent + id_trans_do + ".pdf"
         return await self.stream_file(path, id_trans_do)
 
+    async def export_sales_order(
+        self, tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
+    ):
+        company_id = str(company_id)
+        cabang_id = str(cabang_id)
+        is_range_where = ""
+        if is_range:
+            is_range_where = "AND tanggal >= '" + tanggal_awal + "'"
+
+        where = (
+            "company_id = "
+            + company_id
+            + " AND cabang_id = "
+            + cabang_id
+            + "AND tanggal <= '"
+            + tanggal_akhir
+            + "'"
+            + is_range_where
+        )
+
+        if int(company_id) == 1 and int(cabang_id) == 1:
+            where = "tanggal <= '" + tanggal_akhir + "'" + is_range_where
+
+        elif int(company_id) == 2 and int(cabang_id) == 11:
+            where = (
+                "company_id = "
+                + company_id
+                + "AND tanggal <= '"
+                + tanggal_akhir
+                + "'"
+                + is_range_where
+            )
+
+        sql = f"""SELECT * FROM (
+                    SELECT 
+                        aa.id_trans as id_so,
+						gg.nama_customer,
+                        bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
+                        aa.tanggal,
+                        ee.company_name,
+                        ff.cabang_name,
+                        aa.qty,
+                        aa.harga_satuan,
+                        aa.harga_total,
+						aa.ppn_percent,
+						aa.ppn_value,
+						aa.pph_22_percent,
+						aa.pph_22_value,
+                        aa.biaya_admin,
+						aa.harga_total_ppn_pph,                       
+                        jj.name as nama_sales,
+                        aa.updateindb
+                    FROM trans_inventory_subsidiary_sales_order aa
+                    LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
+                    LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
+                    LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
+                    LEFT JOIN master_company ee ON aa.company_id = ee.id_company
+                    LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company
+					LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                    LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
+                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
+                    LEFT JOIN (select * from master_user where is_salesman = 't') jj ON aa.salesman = jj.id_user
+                    )zz 
+                    WHERE {where}
+                    ORDER BY updateindb DESC
+                    """
+
+        result = await self.db.executeToDict(sql)
+
+        wb = self.excel_return(result)
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=example.xlsx"},
+        )
+        # return result
+
+    def excel_return(self, result_data):
+
+        wb = Workbook()
+        ws = wb.active
+        ws["A1"].value = "ID SO"
+        ws["B1"].value = "Nama Customer"
+        ws["C1"].value = "Nama Produk"
+        ws["D1"].value = "Tanggal"
+        ws["E1"].value = "Nama Company"
+        ws["F1"].value = "Nama Cabang"
+        ws["G1"].value = "Quantity"
+        ws["H1"].value = "Harga Satuan"
+        ws["I1"].value = "Harga Total"
+        ws["J1"].value = "PPN %"
+        ws["K1"].value = "PPN Value"
+        ws["L1"].value = "PPH 22 %"
+        ws["M1"].value = "PPH 22 Value"
+        ws["N1"].value = "Biaya Admin"
+        ws["O1"].value = "Grand Total"
+        ws["P1"].value = "SalesMan"
+
+        if len(result_data) > 0:
+            data_key = []
+            i = 0
+
+        x = 0
+        for key, value in result_data[0].items():
+            data_key.append(key)
+            ws.cell(1, x + 1).font = Font(b=True, color="000000")
+            ws.cell(1, x + 1).fill = PatternFill(
+                start_color="ffff00", end_color="ffff00", fill_type="solid"
+            )
+            x = x + 1
+
+        for data in result_data:
+            data_export = []
+            for key in data_key[:-1]:
+                data_export.append(data[key])
+            ws.append(data_export)
+            i = i + 1
+
+        return wb
+
 
 """
 list your path url at bottom
@@ -1204,3 +1331,17 @@ async def stream_file(filename: str = Query(None, alias="filename")):
     path_parent = params.loc["file_inventory_sales_order"]
     path = path_parent + "/" + filename
     return await ob_data.stream_file(path, filename)
+
+
+@app.get("/api/f_trans/c_subsidiary_inventory_sales_order/export_sales_order")
+async def get_invoice_so(
+    tanggal_awal: str = Query(None, alias="tanggal_awal"),
+    tanggal_akhir: str = Query(None, alias="tanggal_akhir"),
+    company_id: int = Query(None, alias="company_id"),
+    cabang_id: int = Query(None, alias="cabang_id"),
+    is_range: bool = Query(None, alias="is_range"),
+):
+    ob_data = c_subsidiary_inventory_sales_order()
+    return await ob_data.export_sales_order(
+        tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
+    )

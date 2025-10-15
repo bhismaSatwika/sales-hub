@@ -306,8 +306,12 @@ class c_holding_inventory_submit(object):
             raise HTTPException(400, "The error is: " + str(e))
 
     async def release(self, data):
-        get_status_release = f"""SELECT count(*) count FROM trans_inventory_holding_submit WHERE id_trans = '{data["id_trans"]}' AND status_release = true"""
+        data_where_update = data["data_where_update"]
+        data_where_delete = data["data_where_delete"]
 
+        get_status_release = f"""SELECT count(*) count FROM trans_inventory_holding_submit WHERE id_trans = '{data_where_update["id_trans"]}' AND status_release = true"""
+
+        print(get_status_release)
         status_release = await self.db.executeToDict(get_status_release)
         res = status_release[0]["count"]
 
@@ -316,9 +320,6 @@ class c_holding_inventory_submit(object):
                 "status": "Success",
                 "detail": "Transaksi sudah direlease sebelumnya",
             }
-
-        data_where_update = data["data_where_update"]
-        data_where_delete = data["data_where_delete"]
 
         try:
 
