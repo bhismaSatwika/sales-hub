@@ -15,7 +15,7 @@ class c_master_customer(object):
     async def read(
         self, orderby, limit, offset, filter, filter_other="", filter_other_conj=""
     ):
-        if orderby == None or orderby == '':
+        if orderby == None or orderby == "":
             orderby = "id_customer ASC"
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
@@ -102,8 +102,15 @@ class c_master_customer(object):
         else:
             where_sql = f"""WHERE (1=1)"""
 
-        sql = f"""SELECT id_customer as value,nama_customer as text 
-    				FROM master_customer {where_sql} ORDER BY id_customer ASC LIMIT 100"""
+        sql = f"""SELECT 
+            id_customer AS value, 
+            CONCAT(nama_customer, ' (', LEFT(alamat, 30), ')') AS text 
+        FROM 
+            master_customer 
+        {where_sql}
+        ORDER BY 
+            id_customer ASC 
+        LIMIT 100;"""
 
         print(sql)
         result = await self.db.executeToDict(sql)

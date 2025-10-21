@@ -44,9 +44,11 @@ class c_subsidiary_inventory_sales_order(object):
 
             if company_id == 1:
                 filter_other = f""
+                filter_other_conj = f""
 
             if company_id == 2 and cabang_id == 11:
                 filter_other = f" zz.company_id = '{company_id}'"
+
         else:
             filter_other = f""
             filter_other_conj = f""
@@ -996,14 +998,14 @@ class c_subsidiary_inventory_sales_order(object):
         cabang_id = str(cabang_id)
         is_range_where = ""
         if is_range:
-            is_range_where = "AND tanggal >= '" + tanggal_awal + "'"
+            is_range_where = " AND tanggal >= '" + tanggal_awal + "'"
 
         where = (
             "company_id = "
             + company_id
             + " AND cabang_id = "
             + cabang_id
-            + "AND tanggal <= '"
+            + " AND tanggal <= '"
             + tanggal_akhir
             + "'"
             + is_range_where
@@ -1040,7 +1042,9 @@ class c_subsidiary_inventory_sales_order(object):
                         aa.biaya_admin,
 						aa.harga_total_ppn_pph,                       
                         jj.name as nama_sales,
-                        aa.updateindb
+                        aa.updateindb,
+                        aa.company_id,
+                        aa.cabang_id
                     FROM trans_inventory_subsidiary_sales_order aa
                     LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
                     LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
@@ -1106,7 +1110,7 @@ class c_subsidiary_inventory_sales_order(object):
 
         for data in result_data:
             data_export = []
-            for key in data_key[:-1]:
+            for key in data_key[:-3]:
                 data_export.append(data[key])
             ws.append(data_export)
             i = i + 1
