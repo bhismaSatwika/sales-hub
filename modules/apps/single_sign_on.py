@@ -13,7 +13,7 @@ from modules.apps.login import login as Login
 class single_sign_on(object):
     def __init__(self):
         self.db = Db()
-        self.apps_id = "1d3b256b98957acf5b285622a1301c62"
+        self.apps_id = "27738fb6-a478-4d89-a8e8-5971e875a6c0"
         self.url = "http://170.1.20.110:8051"
 
     async def req_wa_auth(self, nik):

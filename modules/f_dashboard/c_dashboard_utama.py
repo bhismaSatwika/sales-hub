@@ -122,21 +122,34 @@ class c_dashboard_utama(object):
         tahun = date.year
 
         where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+        gb = f"""GROUP BY company_id,cabang_id"""
 
         if int(company_id) == 1:
             where = f"""WHERE tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            gb = ""
         elif int(company_id) == 2 and int(cabang_id) == 11:
             where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
 
-        sql = f"""SELECT
-                    company_id,
-                    cabang_id,
-                    SUM(nominal) as nominal_total 
-                FROM trans_sales_order_paid_payment 
+        # sql = f"""SELECT
+        #             company_id,
+        #             cabang_id,
+        #             SUM(nominal) as nominal_total
+        #         FROM trans_sales_order_paid_payment
+        #         {where}
+        #         GROUP BY company_id,cabang_id"""
+
+        sql = f"""
+                SELECT SUM
+                ( amount_total ) - SUM ( amount_total_outstanding ) AS nominal_total
+                FROM
+                trans_inventory_subsidiary_invoice aa
+                LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
                 {where}
-                GROUP BY company_id,cabang_id"""
+                {gb}
+                """
 
         try:
+            print(sql)
             result = await self.db.executeToDict(sql)
             # print(result)
             if len(result) == 0:
@@ -152,11 +165,11 @@ class c_dashboard_utama(object):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        and_filter = f"""and company_id = {company_id} AND cabang_id = {cabang_id}"""
+        and_filter = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id}"""
         if int(company_id) == 1:
             and_filter = ""
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            and_filter = f"""and company_id = {company_id}"""
+            and_filter = f"""WHERE company_id = {company_id}"""
 
         sql_chart_label = f""" SELECT
                             to_char(to_date(month_::text, 'MM'), 'Mon') AS month_name
@@ -176,7 +189,8 @@ class c_dashboard_utama(object):
                             year_"""
 
         sql_chart_value = f"""SELECT 
-                        B.total 
+                        B.total,
+                        C.paid_paymnet
                     FROM
                         (
                         SELECT
@@ -198,25 +212,50 @@ class c_dashboard_utama(object):
                             month_ 
                         )
                         A LEFT JOIN ( 
-                        SELECT SUM ( harga_total ) AS total, date_part( 'month', tanggal ) AS MONTH 
-                        FROM trans_inventory_detail_mutasi 
-                        WHERE mutasi_type = 'SO' AND in_out = 'OUT' {and_filter}
-                        GROUP BY MONTH 
-                        ) B ON A.month_ = B.MONTH"""
+                        SELECT SUM
+                            ( aa.amount_total ) AS total,
+                            date_part('month', bb.tanggal) as  MONTH
+                            FROM
+                            trans_inventory_subsidiary_invoice aa
+                            LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
+                            {and_filter}
+                            GROUP BY month
+                        ) B ON A.month_ = B.MONTH
+                        LEFT JOIN (
+                            SELECT 
+                            SUM( aa.amount_total) - sum(aa.amount_total_outstanding) as paid_paymnet,
+                            date_part( 'month', bb.tanggal ) AS MONTH 
+                            FROM
+                            trans_inventory_subsidiary_invoice aa
+                            LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order 
+                            WHERE
+                            company_id = 2 
+                            AND cabang_id = 38 
+                            GROUP BY
+                            MONTH
+                        ) C ON A.month_ = C.MONTH
+                        """
+        print(sql_chart_value)
         try:
             result1 = await self.db.executeToDict(sql_chart_label)
             result_label = [kategori["month_name"] for kategori in result1]
             result2 = await self.db.executeToDict(sql_chart_value)
             result_value = [value["total"] for value in result2]
+            result_paid = [value["paid_paymnet"] for value in result2]
 
             # print(sql_chart_label)
 
-            data = {"result_label": result_label, "result_value": result_value}
+            data = {
+                "result_label": result_label,
+                "result_value": result_value,
+                "result_paid": result_paid,
+            }
 
             message = {"status": "success"}
 
         except Exception as e:
             message = {"status": "error"}
+            print(e)
             raise HTTPException(400, ("The error is: ", str(e)))
 
         return data
@@ -233,10 +272,10 @@ class c_dashboard_utama(object):
         sql = f"""SELECT
                     sum(amount_total_outstanding) total_out_standing,
                     sum(case when '{tanggal}'::DATE - aa.tanggal_due_date <= 0 then amount_total_outstanding else 0 end) no_due_date,
-                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date BETWEEN 1 and 60 then amount_total_outstanding else 0 end) _1_60,
-                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date BETWEEN 61 and 180 then amount_total_outstanding else 0 end) _61_120,
-                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date BETWEEN 181 and 365 then amount_total_outstanding else 0 end) _181_365,
-                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date > 365 then amount_total_outstanding else 0 end) _365
+                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date BETWEEN 1 and 30 then amount_total_outstanding else 0 end) _1_30,
+                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date BETWEEN 31 and 60 then amount_total_outstanding else 0 end) _31_60,
+                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date BETWEEN 60 and 90 then amount_total_outstanding else 0 end) _60_90,
+                    sum(case when '{tanggal}'::DATE - aa.tanggal_due_date > 90 then amount_total_outstanding else 0 end) _90
                 FROM
                     trans_inventory_subsidiary_invoice aa
                     LEFT JOIN master_customer bb on aa.customer_id=bb.id_customer
@@ -252,10 +291,10 @@ class c_dashboard_utama(object):
             data = {
                 "total_out_standing": result[0]["total_out_standing"],
                 "no_due_date": result[0]["total_out_standing"],
-                "_1_60": result[0]["_1_60"],
-                "_61_120": result[0]["_61_120"],
-                "_181_365": result[0]["_181_365"],
-                "_365": result[0]["_365"],
+                "_1_30": result[0]["_1_30"],
+                "_31_60": result[0]["_31_60"],
+                "_60_90": result[0]["_60_90"],
+                "_90": result[0]["_90"],
             }
 
             message = {"status": "success"}
@@ -313,10 +352,10 @@ class c_dashboard_utama(object):
                     bb.nama_customer,
                     sum(amount_total_outstanding),
                     sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date <= 0 then amount_total_outstanding else 0 end) no_due_date,
-                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 1 and 60 then amount_total_outstanding else 0 end) _1_60,
-                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 61 and 180 then amount_total_outstanding else 0 end) _61_120,
-                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 181 and 365 then amount_total_outstanding else 0 end) _181_365,
-                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date > 365 then amount_total_outstanding else 0 end) _365
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 1 and 30 then amount_total_outstanding else 0 end) _1_30,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 31 and 60 then amount_total_outstanding else 0 end) _31_60,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 60 and 90 then amount_total_outstanding else 0 end) _60_90,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date > 90 then amount_total_outstanding else 0 end) _90
                     FROM
                         trans_inventory_subsidiary_invoice aa
                         LEFT JOIN master_customer bb on aa.customer_id=bb.id_customer

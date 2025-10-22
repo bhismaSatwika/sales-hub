@@ -1040,7 +1040,8 @@ class c_subsidiary_inventory_sales_order(object):
 						aa.pph_22_percent,
 						aa.pph_22_value,
                         aa.biaya_admin,
-						aa.harga_total_ppn_pph,                       
+						aa.harga_total_ppn_pph,
+                        ii.pembayaran,                       
                         jj.name as nama_sales,
                         aa.updateindb,
                         aa.company_id,
@@ -1093,7 +1094,8 @@ class c_subsidiary_inventory_sales_order(object):
         ws["M1"].value = "PPH 22 Value"
         ws["N1"].value = "Biaya Admin"
         ws["O1"].value = "Grand Total"
-        ws["P1"].value = "SalesMan"
+        ws["P1"].value = "Pembayaran"
+        ws["Q1"].value = "SalesMan"
 
         if len(result_data) > 0:
             data_key = []
