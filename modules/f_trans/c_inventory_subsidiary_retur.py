@@ -347,14 +347,8 @@ async def get_id_trans_kode(company_id, cabang_id, kode_trans, tahun, bulan):
 
 
 @app.post("/api/f_trans/c_inventory_subsidiary_retur/create")
-async def create(
-    id_invoice: str = Form(...),
-    tanggal_retur: str = Form(...),
-    ):
-    data = {
-        "id_invoice": id_invoice,
-        "tanggal_retur": tanggal_retur,
-    }
+async def create_data(request:Request):
+    data = await request.json()
     ob_data = c_inventory_subsidiary_retur()
     return await ob_data.create(data)
 
