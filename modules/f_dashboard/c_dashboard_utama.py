@@ -542,6 +542,109 @@ class c_dashboard_utama(object):
 
         return data
 
+    async def read_sales_header(
+        self,
+        orderby,
+        limit,
+        offset,
+        filter,
+        company_id,
+        cabang_id,
+        tanggal=None,
+        filter_other="",
+        filter_other_conj="",
+    ):
+
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}'"""
+        if int(company_id) == 1:
+            where = f"WHERE tanggal_invoice <= '{tanggal}'"
+        elif int(company_id) == 2 and int(cabang_id) == 11:
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}'"""
+
+        if orderby == None or orderby == "":
+            orderby = "company_id, cabang_id, produk_id"
+
+        str_clause = self.kendoParse().parse_query(
+            orderby, limit, offset, filter, filter_other, filter_other_conj
+        )
+        str_clause_count = self.kendoParse().parse_query(
+            "", None, None, filter, filter_other, filter_other_conj
+        )
+
+        sql = (
+            f"""
+                SELECT C.company_name,
+        D.cabang_name,
+        B.nama_produk,
+        A.total_qty,
+        A.total_sales,
+        A.total_outstanding 
+        FROM
+        (
+            SELECT
+            B.company_id,
+            B.cabang_id,
+            A.produk_id,
+            SUM ( A.qty ) AS total_qty,
+            SUM ( amount_total ) AS total_sales,
+            SUM ( amount_total_outstanding ) AS total_outstanding 
+            FROM
+            trans_inventory_subsidiary_invoice
+            A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
+            {where}
+            GROUP BY
+            A.produk_id,
+            company_id,
+            cabang_id 
+        )
+        A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
+        LEFT JOIN master_company C ON A.company_id = C.id_company
+        LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
+        AND A.cabang_id = D.id_cabang
+        """
+            + str_clause
+        )
+
+        sql_count = (
+            f"""
+                 SELECT Count(A.*) as count
+        FROM
+        (
+            SELECT
+            B.company_id,
+            B.cabang_id,
+            A.produk_id,
+            SUM ( A.qty ) AS total_qty,
+            SUM ( amount_total ) AS total_sales,
+            SUM ( amount_total_outstanding ) AS total_outstanding 
+            FROM
+            trans_inventory_subsidiary_invoice
+            A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
+            {where}
+            GROUP BY
+            A.produk_id,
+            company_id,
+            cabang_id 
+        )
+        A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
+        LEFT JOIN master_company C ON A.company_id = C.id_company
+        LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
+        AND A.cabang_id = D.id_cabang
+        """
+            + str_clause_count
+        )
+
+        try:
+            result = await self.db.executeToDict(sql)
+            result_count = await self.db.executeToDict(sql_count)
+            data = {"data": result, "total": result_count[0]["count"]}
+
+        except Exception as e:
+            print(e)
+            raise HTTPException(400, ("The error is: ", str(e)))
+
+        return data
+
 
 """
 list your path url at bottom
@@ -620,3 +723,19 @@ async def read_inventori_resume(
 async def read_data_all(company_id, cabang_id, tanggal: str):
     ob_data = c_dashboard_utama()
     return await ob_data.read_data_all(company_id, cabang_id, tanggal)
+
+
+@app.get("/api/f_dashboard/c_dashboard_utama/read_sales_header")
+async def read_sales_header(
+    limit: int = Query(None, alias="$top"),
+    orderby: str = Query(None, alias="$orderby"),
+    offset: int = Query(None, alias="$skip"),
+    filter: str = Query(None, alias="$filter"),
+    tanggal: str = Query(None, alias="tanggal"),
+    company_id: int = Query(None, alias="company_id"),
+    cabang_id: int = Query(None, alias="cabang_id"),
+):
+    ob_data = c_dashboard_utama()
+    return await ob_data.read_sales_header(
+        orderby, limit, offset, filter, company_id, cabang_id, tanggal
+    )
