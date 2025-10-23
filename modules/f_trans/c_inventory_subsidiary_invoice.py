@@ -39,6 +39,7 @@ class c_inventory_subsidiary_invoice(object):
 
             if company_id == 1:
                 filter_other = f""
+                filter_other_conj = f""
 
             elif company_id == 2 and cabang_id == 11:
                 filter_other = f" zz.company_id = '{company_id}'"
@@ -87,7 +88,8 @@ class c_inventory_subsidiary_invoice(object):
 					jj.name as nama_sales,
                     aa.id_pembayaran,
                     kk.pembayaran,
-                    aa.md5_file
+                    aa.md5_file,
+                    ii.nama_customer
                 FROM
                     trans_inventory_subsidiary_invoice aa
                     LEFT JOIN trans_inventory_subsidiary_sales_order bb ON aa.id_trans_sales_order = bb.id_trans

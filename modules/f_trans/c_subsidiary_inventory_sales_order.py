@@ -1027,6 +1027,7 @@ class c_subsidiary_inventory_sales_order(object):
         sql = f"""SELECT * FROM (
                     SELECT 
                         aa.id_trans as id_so,
+                        gg.account_va,
 						gg.nama_customer,
                         bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
                         aa.tanggal,
@@ -1080,22 +1081,23 @@ class c_subsidiary_inventory_sales_order(object):
         wb = Workbook()
         ws = wb.active
         ws["A1"].value = "ID SO"
-        ws["B1"].value = "Nama Customer"
-        ws["C1"].value = "Nama Produk"
-        ws["D1"].value = "Tanggal"
-        ws["E1"].value = "Nama Company"
-        ws["F1"].value = "Nama Cabang"
-        ws["G1"].value = "Quantity"
-        ws["H1"].value = "Harga Satuan"
-        ws["I1"].value = "Harga Total"
-        ws["J1"].value = "PPN %"
-        ws["K1"].value = "PPN Value"
-        ws["L1"].value = "PPH 22 %"
-        ws["M1"].value = "PPH 22 Value"
-        ws["N1"].value = "Biaya Admin"
-        ws["O1"].value = "Grand Total"
-        ws["P1"].value = "Pembayaran"
-        ws["Q1"].value = "SalesMan"
+        ws["B1"].value = "Account VA"
+        ws["C1"].value = "Nama Customer"
+        ws["D1"].value = "Nama Produk"
+        ws["E1"].value = "Tanggal"
+        ws["F1"].value = "Nama Company"
+        ws["G1"].value = "Nama Cabang"
+        ws["H1"].value = "Quantity"
+        ws["I1"].value = "Harga Satuan"
+        ws["J1"].value = "Harga Total"
+        ws["K1"].value = "PPN %"
+        ws["L1"].value = "PPN Value"
+        ws["M1"].value = "PPH 22 %"
+        ws["N1"].value = "PPH 22 Value"
+        ws["O1"].value = "Biaya Admin"
+        ws["P1"].value = "Grand Total"
+        ws["Q1"].value = "Pembayaran"
+        ws["R1"].value = "SalesMan"
 
         if len(result_data) > 0:
             data_key = []
