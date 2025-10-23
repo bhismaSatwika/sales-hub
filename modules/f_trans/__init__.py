@@ -6,7 +6,8 @@ __all__=[
     "c_subsidiary_inventory_sales_order",
     "c_subsidiary_inventory_delivery_order",
     "c_inventory_subsidiary_invoice",
-"c_subsidiary_inventory_sales_order_release",
+    "c_subsidiary_inventory_sales_order_release",
+    "c_inventory_subsidiary_retur",
             ]
             
             

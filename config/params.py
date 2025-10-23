@@ -13,6 +13,7 @@ loc = {
     "file_sales_recap_report": rootWeb + "/files/sales_recap_report/",
     "file_invoice": rootWeb + "/files/invoice/",
     "file_template_download": rootWeb + "/files/template_download/",
+    "file_sales_retur": rootWeb + "/files/sales_retur/",
 }
 
 
