@@ -32,11 +32,11 @@ class c_subsidiary_inventory_receipt_transfer(object):
     ):
 
         if company_id != None and cabang_id != None:
-            filter_other = f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}' AND zz.status_release = false"
+            filter_other = f" zz.to_company_id = '{company_id}' AND zz.to_cabang_id = '{cabang_id}' AND zz.status_release = false"
             filter_other_conj = f" and "
 
             if company_id == 2 and cabang_id == 11:
-                filter_other = f" zz.company_id = '{company_id}'"
+                filter_other = f" zz.to_company_id = '{company_id}'"
 
         else:
             filter_other = f""
@@ -55,9 +55,9 @@ class c_subsidiary_inventory_receipt_transfer(object):
             f"""SELECT * FROM (
                     SELECT 
                         aa.id_trans,
-                        bb.id_company as company_id,
+                        dd.company_id,
                         bb.company_name,
-                        cc.id_cabang as cabang_id,
+                        dd.cabang_id,
                         cc.cabang_name,
                         (CASE 
                             WHEN aa.status_release = true
@@ -87,9 +87,9 @@ class c_subsidiary_inventory_receipt_transfer(object):
                         ee.ppn,
                         ee.pph22
                     FROM trans_inventory_subsidiary_receipt_transfer aa
-                    LEFT JOIN master_company bb ON aa.company_id = bb.id_company
-                    LEFT JOIN master_company_cabang cc ON aa.cabang_id = cc.id_cabang AND aa.company_id = cc.id_company
 					LEFT JOIN trans_inventory_holding_transfer dd ON aa.id_trans_holding_transfer = dd.id_trans
+                    LEFT JOIN master_company bb ON dd.company_id = bb.id_company
+                    LEFT JOIN master_company_cabang cc ON dd.cabang_id = cc.id_cabang AND dd.company_id = cc.id_company
 					LEFT JOIN master_produk ee ON dd.produk_id = ee.id_produk
 					LEFT JOIN master_produk_kategori ff ON ee.kategori_produk = ff.id_kategori
 					LEFT JOIN master_produk_uom_satuan gg ON ee.uom_satuan = gg.id_uom_satuan
@@ -166,11 +166,11 @@ class c_subsidiary_inventory_receipt_transfer(object):
     ):
 
         if company_id != None and cabang_id != None:
-            filter_other = f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}' AND zz.status_release = true"
+            filter_other = f" zz.to_company_id = '{company_id}' AND zz.to_cabang_id = '{cabang_id}' AND zz.status_release = true"
             filter_other_conj = f" and "
 
             if company_id == 2 and cabang_id == 11:
-                filter_other = f" zz.company_id = '{company_id}'"
+                filter_other = f" zz.to_company_id = '{company_id}'"
         else:
             filter_other = f""
             filter_other_conj = f""
@@ -188,9 +188,9 @@ class c_subsidiary_inventory_receipt_transfer(object):
             f"""SELECT * FROM (
                     SELECT 
                         aa.id_trans,
-                        bb.id_company as company_id,
+                        dd.company_id,
                         bb.company_name,
-                        cc.id_cabang as cabang_id,
+                        dd.cabang_id,
                         cc.cabang_name,
                         (CASE 
                             WHEN aa.status_release = true
@@ -218,9 +218,9 @@ class c_subsidiary_inventory_receipt_transfer(object):
 						ii.cabang_name as to_cabang_name,
                         dd.id_trans as id_trans_inventory_transfer
                     FROM trans_inventory_subsidiary_receipt_transfer aa
-                    LEFT JOIN master_company bb ON aa.company_id = bb.id_company
-                    LEFT JOIN master_company_cabang cc ON aa.cabang_id = cc.id_cabang AND aa.company_id = cc.id_company
 					LEFT JOIN trans_inventory_holding_transfer dd ON aa.id_trans_holding_transfer = dd.id_trans
+                    LEFT JOIN master_company bb ON dd.company_id = bb.id_company
+                    LEFT JOIN master_company_cabang cc ON dd.cabang_id = cc.id_cabang AND dd.company_id = cc.id_company
 					LEFT JOIN master_produk ee ON dd.produk_id = ee.id_produk
 					LEFT JOIN master_produk_kategori ff ON ee.kategori_produk = ff.id_kategori
 					LEFT JOIN master_produk_uom_satuan gg ON ee.uom_satuan = gg.id_uom_satuan
