@@ -295,7 +295,100 @@ class c_inventory_subsidiary_retur(object):
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
+    
 
+    async def read_detail(self,orderby,limit,offset,filter,company_id=None,cabang_id=None,filter_other="",filter_other_conj=""):
+        if company_id != None and cabang_id != None:
+            filter_other = (
+                f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
+            )
+            filter_other_conj = f" and "
+
+            if company_id == 1:
+                filter_other = f""
+                filter_other_conj = f""
+
+            if company_id == 2 and cabang_id == 11:
+                filter_other = f" zz.company_id = '{company_id}'"
+
+        else:
+            filter_other = f""
+            filter_other_conj = f""
+
+        if orderby == None or orderby == "":
+            orderby = "zz.updateindb DESC"
+        str_clause = self.kendoParse().parse_query(
+            orderby, limit, offset, filter, filter_other, filter_other_conj
+        )
+        str_clause_count = self.kendoParse().parse_query(
+            "", None, None, filter, filter_other, filter_other_conj
+        )
+
+        sql = f"""SELECT * FROM (
+                SELECT
+                    aa.id_detail,
+                    aa.id_header,
+                    aa.qty_retur,
+                    aa.updateindb,
+                    aa.userupdate,
+                    aa.produk_id,
+                    aa.qty_order,
+                    ee.harga_satuan,
+                    bb.nama_produk,
+                    cc.id_invoice,
+                    cc.company_id,
+                    cc.cabang_id,
+                    dd.id_trans_sales_order
+                FROM trans_inventory_subsidiary_retur_detail aa
+                LEFT JOIN master_produk bb
+                ON aa.produk_id = bb.id_produk
+                LEFT JOIN trans_inventory_subsidiary_retur_header cc
+                ON aa.id_header = cc.id_header
+                LEFT JOIN trans_inventory_subsidiary_invoice dd
+                ON cc.id_invoice = dd.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order ee
+                ON dd.id_trans_sales_order = ee.id_trans
+              ) zz """+str_clause
+
+        sql_count = f"""SELECT (*) as count FROM (
+                SELECT
+                    aa.id_detail,
+                    aa.id_header,
+                    aa.qty_retur,
+                    aa.updateindb,
+                    aa.userupdate,
+                    aa.produk_id,
+                    aa.qty_order,
+                    ee.harga_satuan,
+                    bb.nama_produk,
+                    cc.id_invoice,
+                    cc.company_id,
+                    cc.cabang_id,
+                    dd.id_trans_sales_order
+                FROM trans_inventory_subsidiary_retur_detail aa
+                LEFT JOIN master_produk bb
+                ON aa.produk_id = bb.id_produk
+                LEFT JOIN trans_inventory_subsidiary_retur_header cc
+                ON aa.id_header = cc.id_header
+                LEFT JOIN trans_inventory_subsidiary_invoice dd
+                ON cc.id_invoice = dd.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order ee
+                ON dd.id_trans_sales_order = ee.id_trans
+              ) zz """+str_clause_count
+
+        result = await self.db.executeToDict(sql)
+        result_count = await self.db.executeToDict(sql_count)
+
+        data = {"data": result, "count": result_count[0]["count"]}
+        return data
+
+
+    # async def release(self, data):
+        #insert ke tabel trans_approval_header
+
+
+        #insert ke tabel detail_approval
+        
 
 
 """
@@ -345,13 +438,11 @@ async def get_id_trans_kode(company_id, cabang_id, kode_trans, tahun, bulan):
         company_id, cabang_id, kode_trans, tahun, bulan
     )
 
-
 @app.post("/api/f_trans/c_inventory_subsidiary_retur/create")
 async def create_data(request:Request):
     data = await request.json()
     ob_data = c_inventory_subsidiary_retur()
     return await ob_data.create(data)
-
 
 @app.post("/api/f_trans/c_inventory_subsidiary_retur/update")
 async def update_data(
@@ -370,9 +461,28 @@ async def update_data(
     ob_data = c_inventory_subsidiary_retur()
     return await ob_data.update(data, files, filename)
 
-
 @app.post("/api/f_trans/c_inventory_subsidiary_retur/delete")
 async def delete(request: Request):
     data = await request.json()
     ob_data = c_inventory_subsidiary_retur()
     return await ob_data.delete(data)
+
+@app.get("/api/f_trans/c_inventory_subsidiary_retur/read_detail")
+async def read_detail(
+    limit: int = Query(None, alias="$top"),
+    orderby: str = Query(None, alias="$orderby"),
+    offset: int = Query(None, alias="$skip"),
+    filter: str = Query(None, alias="$filter"),
+    company_id: int = Query(None, alias="$company_id"),
+    cabang_id: int = Query(None, alias="$cabang_id"),
+):
+    ob_data = c_inventory_subsidiary_retur()
+    return await ob_data.read_detail(orderby, limit, offset, filter, company_id, cabang_id)
+
+
+@app.post("/api/f_trans/c_inventory_subsidiary_retur/release")
+async def release(request: Request):
+    data = await request.json()
+    ob_data = c_inventory_subsidiary_retur()
+    data = data["data_where_update"]
+    return await ob_data.release(data)
