@@ -13,18 +13,18 @@ class Db:
     # engine = create_engine('postgresql+psycopg2://user:password@hostname/database_name')
     __dbTypeCon = {
         "postgres": "postgresql+asyncpg://{}:{}@{}:{}/{}",
-        "mysql": "mysql+pymysql+aiomysql://{}:{}@{}:{}/{}?charset=utf8mb4"
+        "mysql": "mysql+pymysql+aiomysql://{}:{}@{}:{}/{}?charset=utf8mb4",
     }
 
-    def __init__(self, db_config = None):
-        if db_config != None :
-            self.__host = db_config['host']
-            self.__port = db_config['port']
-            self.__db = db_config['db']
-            self.__username = db_config['username']
+    def __init__(self, db_config=None):
+        if db_config != None:
+            self.__host = db_config["host"]
+            self.__port = db_config["port"]
+            self.__db = db_config["db"]
+            self.__username = db_config["username"]
             # self.__password = quote_plus(db_config[   'password'])
-            self.__password = db_config['password']
-            self.__dbType = db_config['dbType']
+            self.__password = db_config["password"]
+            self.__dbType = db_config["dbType"]
         else:
             self.__host = dbDefaultConfig.db_config["host"]
             self.__db = dbDefaultConfig.db_config["db"]
@@ -36,18 +36,21 @@ class Db:
 
     def __setDbConnectString(self):
 
-        if self.__dbType == 'postgres':
+        if self.__dbType == "postgres":
             strConnection = self.__dbTypeCon[self.__dbType]
-            strConnection = strConnection.format(self.__username, '%s', self.__host, self.__port, self.__db)
+            strConnection = strConnection.format(
+                self.__username, "%s", self.__host, self.__port, self.__db
+            )
             strConnection = strConnection % quote_plus(self.__password)
-        
+
         # print(strConnection)
 
-
-        if self.__dbType == 'mysql':
+        if self.__dbType == "mysql":
             # print("xxxx")
             strConnection = self.__dbTypeCon[self.__dbType]
-            strConnection = strConnection.format(self.__username, '%s', self.__host, self.__port, self.__db)
+            strConnection = strConnection.format(
+                self.__username, "%s", self.__host, self.__port, self.__db
+            )
             strConnection = strConnection % quote_plus(self.__password)
         # print(strConnection)
         return strConnection
@@ -59,7 +62,7 @@ class Db:
         async with self.__dbExec.begin() as conn:
             await conn.execute(text(sqlString))
             await self.__dbExec.dispose()
-            
+
     async def executeQueryWithReturn(self, sqlString):
         Session = async_sessionmaker(self.__dbExec, expire_on_commit=False)
         session = Session()
@@ -84,10 +87,10 @@ class Db:
     # async def executeToJSON(self, sqlString):
     #     return json.dumps(await self.executeToDict(sqlString), default=self.convert_datetime_to_string)
 
-    async def executeTrans(self, sqlStringArray:[]):
+    async def executeTrans(self, sqlStringArray: []):
         Session = async_sessionmaker(self.__dbExec, expire_on_commit=False)
-        status=""
-        detail=""
+        status = ""
+        detail = ""
         try:
             async with Session() as session:
                 for sqlString in sqlStringArray:
@@ -96,7 +99,7 @@ class Db:
                 await session.close()
                 await self.__dbExec.dispose()
                 status = True
-                detail = 'success'
+                detail = "success"
         except SQLAlchemyError as e:
             print(e)
             await session.rollback()
@@ -105,7 +108,7 @@ class Db:
         finally:
             await session.close()
 
-        return {"status":status, "detail":detail}
+        return {"status": status, "detail": detail}
 
     def genStrInsertSingleObject(self, object, table):
         sql = f"insert into {table} "
@@ -116,12 +119,12 @@ class Db:
             if item == "current_timestamp":
                 values = values + f"{item},"
             else:
-                if item == None or item =='None':
+                if item == None or item == "None":
                     values = values + f"null,"
                 else:
                     values = values + f"'{item}',"
-        field = field[:-1]+")"
-        values = values[:-1]+")"
+        field = field[:-1] + ")"
+        values = values[:-1] + ")"
         sqlString = sql + field + values
         return sqlString
 
@@ -138,7 +141,7 @@ class Db:
             fieldx.append(key)
         field = field[:-1] + ")"
 
-        while (i < length):
+        while i < length:
             value = " ("
             """for key, item in objectArray[i].items():
                 field = field + f"{key},"
@@ -151,7 +154,10 @@ class Db:
             for index in range(len(fieldx)):
                 if objectArray[i][fieldx[index]] == "current_timestamp":
                     value = value + f"{objectArray[i][fieldx[index]]},"
-                elif objectArray[i][fieldx[index]] == None or objectArray[i][fieldx[index]] == 'None':
+                elif (
+                    objectArray[i][fieldx[index]] == None
+                    or objectArray[i][fieldx[index]] == "None"
+                ):
                     value = value + f"null,"
                 else:
                     value = value + f"'{objectArray[i][fieldx[index]]}',"
@@ -168,14 +174,14 @@ class Db:
             if item == "current_timestamp":
                 values = values + f""" "{key}"={item},"""
             else:
-                if item == None or item =='None':
+                if item == None or item == "None":
                     values = values + f""" "{key}"=null,"""
                 else:
                     values = values + f""" "{key}"='{item}',"""
         for key, item in objectWhere.items():
             where = where + f"{key}='{item}' and "
         values = values[:-1]
-        sqlString = sql + values +' where '+where[:-4]
+        sqlString = sql + values + " where " + where[:-4]
 
         return sqlString
 
@@ -185,7 +191,7 @@ class Db:
         for key, item in objectWhere.items():
             where = where + f"""  "{key}"='{item}' and"""
         where = where[:-3]
-        sqlString = sql +where
+        sqlString = sql + where
         return sqlString
 
     async def executeQueryWithReturn(self, sqlString):
@@ -201,5 +207,6 @@ class Db:
         finally:
             await session.close()
         return status
+
 
 # dbConnect = Db()
