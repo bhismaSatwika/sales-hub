@@ -1001,7 +1001,7 @@ class c_subsidiary_inventory_sales_order(object):
             is_range_where = " AND tanggal >= '" + tanggal_awal + "'"
 
         where = (
-            "company_id = "
+            "status_release = true and company_id = "
             + company_id
             + " AND cabang_id = "
             + cabang_id
@@ -1012,11 +1012,16 @@ class c_subsidiary_inventory_sales_order(object):
         )
 
         if int(company_id) == 1 and int(cabang_id) == 1:
-            where = "tanggal <= '" + tanggal_akhir + "'" + is_range_where
+            where = (
+                "status_release = true and tanggal <= '"
+                + tanggal_akhir
+                + "'"
+                + is_range_where
+            )
 
         elif int(company_id) == 2 and int(cabang_id) == 11:
             where = (
-                "company_id = "
+                "status_release = true and company_id = "
                 + company_id
                 + "AND tanggal <= '"
                 + tanggal_akhir
@@ -1046,7 +1051,8 @@ class c_subsidiary_inventory_sales_order(object):
                         jj.name as nama_sales,
                         aa.updateindb,
                         aa.company_id,
-                        aa.cabang_id
+                        aa.cabang_id,
+                        aa.status_release
                     FROM trans_inventory_subsidiary_sales_order aa
                     LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
                     LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
@@ -1063,6 +1069,7 @@ class c_subsidiary_inventory_sales_order(object):
                     """
 
         result = await self.db.executeToDict(sql)
+        print(sql)
 
         wb = self.excel_return(result)
         buffer = io.BytesIO()
@@ -1114,7 +1121,7 @@ class c_subsidiary_inventory_sales_order(object):
 
         for data in result_data:
             data_export = []
-            for key in data_key[:-3]:
+            for key in data_key[:-4]:
                 data_export.append(data[key])
             ws.append(data_export)
             i = i + 1

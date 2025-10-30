@@ -556,7 +556,7 @@ GROUP BY
             bulan,
         )
 
-        new_date = tanggal + timedelta(days=30)
+        new_date = tanggal + timedelta(days=7)
         id_trans_md5 = hashlib.md5(data_kode_iv["id_trans"].encode()).hexdigest()
 
         if int(self.sales_order["id_pembayaran"]) == 1:

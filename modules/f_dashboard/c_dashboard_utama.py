@@ -125,7 +125,7 @@ class c_dashboard_utama(object):
         gb = f"""GROUP BY company_id,cabang_id"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE payment_last_updated BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
             gb = ""
         elif int(company_id) == 2 and int(cabang_id) == 11:
             where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
@@ -224,13 +224,11 @@ class c_dashboard_utama(object):
                         LEFT JOIN (
                             SELECT 
                             SUM( aa.amount_total) - sum(aa.amount_total_outstanding) as paid_paymnet,
-                            date_part( 'month', bb.tanggal ) AS MONTH 
+                            date_part( 'month', payment_last_updated ) AS MONTH 
                             FROM
                             trans_inventory_subsidiary_invoice aa
                             LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order 
-                            WHERE
-                            company_id = 2 
-                            AND cabang_id = 38 
+                            {and_filter}
                             GROUP BY
                             MONTH
                         ) C ON A.month_ = C.MONTH
