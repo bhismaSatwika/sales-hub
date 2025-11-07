@@ -383,12 +383,45 @@ class c_inventory_subsidiary_retur(object):
         return data
 
 
-    # async def release(self, data):
+    async def request_approve(self, data):
         #insert ke tabel trans_approval_header
+        data_header_approval = {
+            "header_id": data["id_header"], #id transaksi retur
+            "approval_status": 1, #Processed
+            "updateindb": datetime.today()
+        }
 
+        sql_insert_header_approval = self.db.genStrInsertSingleObject(data_header_approval, "trans_inventory_subsidiary_retur_header")
 
         #insert ke tabel detail_approval
-        
+        sql_detail_approval = f"""INSERT INTO trans_approval_detail (header_id,master_approval,order_approve,approval_status,approval_type) 
+        SELECT 
+            '{data["id_header"]}' AS header_id,
+            id AS master_approval,
+            approval_order AS order_approve,
+            (CASE 
+                WHEN approval_order = 1
+                    THEN 1
+                WHEN approval_order = 2
+                    THEN 2
+            END) AS approval_status,
+            approval_type AS approval_type
+        FROM master_approval 
+        WHERE approval_company_id = {data["company_id"]} AND approval_cabang_id = {data["cabang_id"]}"""
+       
+        sql_insert_detail_approval = self.db.genStrInsertSingleObject(sql_detail_approval, "trans_inventory_subsidiary_retur_detail")
+
+        sql_update_status_release = f"""UPDATE trans_inventory_subsidiary_retur_header SET status_release = 'TRUE' 
+        WHERE company_id =  {data["company_id"]} AND cabang_id ={data["cabang_id"]} AND  id_header = '{data["id_header"]}'"""
+
+        try:
+            await self.db.executeTrans([sql_insert_header_approval,sql_insert_detail_approval,sql_update_status_release])
+            return "success"
+        except Exception as e:
+            raise HTTPException(400, ("The error is: ", str(e)))
+
+
+
 
 
 """
@@ -480,9 +513,9 @@ async def read_detail(
     return await ob_data.read_detail(orderby, limit, offset, filter, company_id, cabang_id)
 
 
-@app.post("/api/f_trans/c_inventory_subsidiary_retur/release")
-async def release(request: Request):
+@app.post("/api/f_trans/c_inventory_subsidiary_retur/request_approve")
+async def request_approve(request: Request):
     data = await request.json()
     ob_data = c_inventory_subsidiary_retur()
     data = data["data_where_update"]
-    return await ob_data.release(data)
+    return await ob_data.request_approve(data)
