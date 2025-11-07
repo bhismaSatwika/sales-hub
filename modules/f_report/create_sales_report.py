@@ -328,6 +328,9 @@ class PDF(FPDF):
                     if column == 4:
                         total_qty += datum
                     if column == 7:
+                        if datum == None:
+                            print("mmmmmmmmmmmmmmmmmmmm")
+                            print(datum)
                         total_harga += datum
                     if column == 9:
                         total_hpp += datum

@@ -278,6 +278,9 @@ class c_subsidiary_inventory_sales_order_release(object):
         ## validasi stok inventory dan jumlah quantity yang akan dirilis
         await self.validasi_quantity(data)
 
+        ## validasi payment
+        await self.validasi_paid_payment(data)
+
         # Mengambil data sales order untuk diinsert ke tabel mutasi
         # save id dari insert mutasinya
         sql_insert_mutasi = await self.insert_mutasi(data)
@@ -374,6 +377,48 @@ class c_subsidiary_inventory_sales_order_release(object):
                 detail=message,
             )
 
+    async def validasi_paid_payment(self, data):
+        sql = f"""
+            SELECT A.*, B.nama_customer FROM (
+            SELECT customer_id, sum(amount_total_outstanding) from trans_inventory_subsidiary_invoice
+            WHERE customer_id = '{data['customer_id']}'
+            GROUP BY customer_id ) A 
+            LEFT JOIN master_customer B on A.customer_id = B.id_customer
+        """
+        print("query payment", sql)
+
+        message = ""
+        try:
+            result = await self.db.executeToDict(sql)
+            print("result:", result)
+
+            if len(result) == 0:
+                return "Success"
+            else:
+
+                sum = result[0]["sum"]
+
+                print("sum:", sum)
+
+                if sum == None:
+                    sum = 0
+
+                if sum > 0:
+                    customer_name = result[0]["nama_customer"]
+                    message = f"Ada payment pada customer {customer_name} yang belum lunas. Cek payment!"
+                    raise HTTPException(
+                        status_code=400,
+                        detail=message,
+                    )
+
+        except Exception as e:
+            print("Eroorrrrrr:", str(e))
+            message = "Gagal ketika rilis sales order: " + message + str(e)
+            raise HTTPException(
+                status_code=400,
+                detail=message,
+            )
+
     async def insert_mutasi(self, data):
         sql_sales_order = f"""SELECT
             id_trans,
@@ -405,7 +450,7 @@ class c_subsidiary_inventory_sales_order_release(object):
             "mutasi_type": "SO",
             "id_references": sales_order["id_trans"],
             "tabel_reference": "trans_inventory_subsidiary_sales_order",
-            "tanggal": sales_order["tanggal"],
+            "tanggal": datetime.now().date(),
         }
 
         sql_insert_inv_mutasi = self.db.genStrInsertSingleObject(

@@ -1030,10 +1030,12 @@ class c_subsidiary_inventory_sales_order(object):
             )
 
         sql = f"""SELECT * FROM (
-                    SELECT 
+                     SELECT 
                         aa.id_trans as id_so,
+                        hh.id_trans as id_invoice,
                         gg.account_va,
 						gg.nama_customer,
+                        gg.npwp,
                         bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
                         aa.tanggal,
                         ee.company_name,
@@ -1088,23 +1090,25 @@ class c_subsidiary_inventory_sales_order(object):
         wb = Workbook()
         ws = wb.active
         ws["A1"].value = "ID SO"
-        ws["B1"].value = "Account VA"
-        ws["C1"].value = "Nama Customer"
-        ws["D1"].value = "Nama Produk"
-        ws["E1"].value = "Tanggal"
-        ws["F1"].value = "Nama Company"
-        ws["G1"].value = "Nama Cabang"
-        ws["H1"].value = "Quantity"
-        ws["I1"].value = "Harga Satuan"
-        ws["J1"].value = "Harga Total"
-        ws["K1"].value = "PPN %"
-        ws["L1"].value = "PPN Value"
-        ws["M1"].value = "PPH 22 %"
-        ws["N1"].value = "PPH 22 Value"
-        ws["O1"].value = "Biaya Admin"
-        ws["P1"].value = "Grand Total"
-        ws["Q1"].value = "Pembayaran"
-        ws["R1"].value = "SalesMan"
+        ws["B1"].value = "ID Invoice"
+        ws["C1"].value = "Account VA"
+        ws["D1"].value = "Nama Customer"
+        ws["E1"].value = "NPWP"
+        ws["F1"].value = "Nama Produk"
+        ws["G1"].value = "Tanggal"
+        ws["H1"].value = "Nama Company"
+        ws["I1"].value = "Nama Cabang"
+        ws["J1"].value = "Quantity"
+        ws["K1"].value = "Harga Satuan"
+        ws["L1"].value = "Harga Total"
+        ws["M1"].value = "PPN %"
+        ws["N1"].value = "PPN Value"
+        ws["O1"].value = "PPH 22 %"
+        ws["P1"].value = "PPH 22 Value"
+        ws["Q1"].value = "Biaya Admin"
+        ws["R1"].value = "Grand Total"
+        ws["S1"].value = "Pembayaran"
+        ws["T1"].value = "SalesMan"
 
         if len(result_data) > 0:
             data_key = []
@@ -1112,6 +1116,7 @@ class c_subsidiary_inventory_sales_order(object):
 
         x = 0
         for key, value in result_data[0].items():
+            print(key, value)
             data_key.append(key)
             ws.cell(1, x + 1).font = Font(b=True, color="000000")
             ws.cell(1, x + 1).fill = PatternFill(

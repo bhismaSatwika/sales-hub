@@ -159,7 +159,7 @@ class c_inventory_subsidiary_retur(object):
         return data_kode
 
     async def read_files(self, id_header):
-        sql = f""" SELECT file_name, files FROM files_retur where id_header = '{id_header}' """
+        sql = f""" SELECT file_name, files FROM files_upload where id_trans = '{id_header}' """
 
         result = await self.db.executeToDict(sql)
 
@@ -230,15 +230,17 @@ class c_inventory_subsidiary_retur(object):
             if trans["status"] == False:
                 # print(trans["detail"])
                 raise HTTPException(400, trans["detail"])
-            return "success"
+            return {"message": "success", "id_header": data_kode["id_trans"]}
         except Exception as e:
             raise HTTPException(400, ("The error is: ", str(e)))
 
-    async def update(self, data, files: List[UploadFile], listFilename: List[str]):
+    async def update(
+        self, data, id_detail, files: List[UploadFile], listFilename: List[str]
+    ):
         try:
             sql_detail = self.db.genUpdateObject(
                 data,
-                {"id_detail": data["id_detail"]},
+                {"id_detail": id_detail},
                 "trans_inventory_subsidiary_retur_detail",
             )
 
@@ -277,6 +279,39 @@ class c_inventory_subsidiary_retur(object):
         except Exception as e:
             raise HTTPException(400, ("The error is: ", str(e)))
 
+    async def update_file(self, data, files: List[UploadFile], listFilename: List[str]):
+        try:
+            if len(files) > 0:
+                path_parent = params.loc["file_sales_retur"]
+                file_insert_query = []
+
+                for i, v in enumerate(files):
+
+                    filename = data["id_header"] + "_" + v.filename
+                    path = path_parent + "/" + filename
+                    print(path)
+
+                    content = await v.read()
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    file_ = open(path, "ab")
+                    file_.write(content)
+                    file_.close()
+
+                    file_insert_query.append(
+                        f"""INSERT INTO files_upload (id_trans, file_name, files)
+                    VALUES('{data["id_header"]}', '{listFilename[i]}', '{filename}');"""
+                    )
+
+            if len(files) > 0:
+                try:
+                    for query in file_insert_query:
+                        # print(query)
+                        await self.db.executeQuery(query)
+                except Exception as e:
+                    raise HTTPException(400, ("The error is: ", str(e)))
+        except Exception as e:
+            raise HTTPException(400, ("The error is: ", str(e)))
+
     async def delete(self, data_where):
         sql_header = self.db.genDeleteObject(
             data_where, "trans_inventory_subsidiary_retur_header"
@@ -286,9 +321,9 @@ class c_inventory_subsidiary_retur(object):
             data_where, "trans_inventory_subsidiary_retur_detail"
         )
 
-        sql_file = self.db.genDeleteObject(data_where, "files_upload")
+        sql_file = self.db.genDeleteObject(data_where, "files_retur")
 
-        get_files = f"""SELECT files FROM files_upload WHERE id_header = '{data_where["id_header"]}'"""
+        get_files = f"""SELECT files FROM files_retur WHERE id_header = '{data_where["id_header"]}'"""
 
         files = await self.db.executeToDict(get_files)
 
@@ -306,28 +341,18 @@ class c_inventory_subsidiary_retur(object):
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
-    
 
-    async def read_detail(self,orderby,limit,offset,filter,company_id=None,cabang_id=None,filter_other="",filter_other_conj=""):
-        if company_id != None and cabang_id != None:
-            filter_other = (
-                f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
-            )
-            filter_other_conj = f" and "
+    async def read_detail(
+        self,
+        orderby,
+        limit,
+        offset,
+        filter,
+        id_header,
+        filter_other="",
+        filter_other_conj="",
+    ):
 
-            if company_id == 1:
-                filter_other = f""
-                filter_other_conj = f""
-
-            if company_id == 2 and cabang_id == 11:
-                filter_other = f" zz.company_id = '{company_id}'"
-
-        else:
-            filter_other = f""
-            filter_other_conj = f""
-
-        if orderby == None or orderby == "":
-            orderby = "zz.updateindb DESC"
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
         )
@@ -335,7 +360,8 @@ class c_inventory_subsidiary_retur(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = f"""SELECT * FROM (
+        sql = (
+            f"""SELECT * FROM (
                 SELECT
                     aa.id_detail,
                     aa.id_header,
@@ -359,9 +385,13 @@ class c_inventory_subsidiary_retur(object):
                 ON cc.id_invoice = dd.id_trans
                 LEFT JOIN trans_inventory_subsidiary_sales_order ee
                 ON dd.id_trans_sales_order = ee.id_trans
-              ) zz """+str_clause
+                where aa.id_header = '{id_header}'
+              ) zz """
+            + str_clause
+        )
 
-        sql_count = f"""SELECT (*) as count FROM (
+        sql_count = (
+            f"""SELECT COUNT(*) as count FROM (
                 SELECT
                     aa.id_detail,
                     aa.id_header,
@@ -385,21 +415,65 @@ class c_inventory_subsidiary_retur(object):
                 ON cc.id_invoice = dd.id_trans
                 LEFT JOIN trans_inventory_subsidiary_sales_order ee
                 ON dd.id_trans_sales_order = ee.id_trans
-              ) zz """+str_clause_count
+                where aa.id_header = '{id_header}'
+
+              ) zz """
+            + str_clause_count
+        )
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
 
-        data = {"data": result, "count": result_count[0]["count"]}
+        data = {"data": result, "total": result_count[0]["count"]}
         return data
 
+    async def request_approve(self, data):
+        # insert ke tabel trans_approval_header
+        data_header_approval = {
+            "header_id": data["id_header"],  # id transaksi retur
+            "approval_status": 1,  # Processed
+            "updateindb": datetime.today(),
+        }
 
-    # async def release(self, data):
-        #insert ke tabel trans_approval_header
+        sql_insert_header_approval = self.db.genStrInsertSingleObject(
+            data_header_approval, "trans_inventory_subsidiary_retur_header"
+        )
 
+        # insert ke tabel detail_approval
+        sql_detail_approval = f"""INSERT INTO trans_approval_detail (header_id,master_approval,order_approve,approval_status,approval_type) 
+        SELECT 
+            '{data["id_header"]}' AS header_id,
+            id AS master_approval,
+            approval_order AS order_approve,
+            (CASE 
+                WHEN approval_order = 1
+                    THEN 1
+                WHEN approval_order = 2
+                    THEN 2
+            END) AS approval_status,
+            approval_type AS approval_type
+        FROM master_approval 
+        WHERE approval_company_id = {data["company_id"]} AND approval_cabang_id = {data["cabang_id"]}"""
 
-        #insert ke tabel detail_approval
-        
+        sql_insert_detail_approval = self.db.genStrInsertSingleObject(
+            sql_detail_approval, "trans_inventory_subsidiary_retur_detail"
+        )
+
+        sql_update_status_release = f"""UPDATE trans_inventory_subsidiary_retur_header SET status_release = 'TRUE' 
+        WHERE company_id =  {data["company_id"]} AND cabang_id ={data["cabang_id"]} AND  id_header = '{data["id_header"]}'"""
+
+        try:
+            await self.db.executeTrans(
+                [
+                    sql_insert_header_approval,
+                    sql_insert_detail_approval,
+                    sql_update_status_release,
+                ]
+            )
+            return "success"
+        except Exception as e:
+            raise HTTPException(400, ("The error is: ", str(e)))
+
 
 """
 list your path url at bottom
@@ -452,28 +526,40 @@ async def get_id_trans_kode(company_id, cabang_id, kode_trans, tahun, bulan):
         company_id, cabang_id, kode_trans, tahun, bulan
     )
 
+
 @app.post("/api/f_trans/c_inventory_subsidiary_retur/create")
 async def create_data(request: Request):
     data = await request.json()
     ob_data = c_inventory_subsidiary_retur()
     return await ob_data.create(data)
 
+
 @app.post("/api/f_trans/c_inventory_subsidiary_retur/update")
 async def update_data(
-    id_invoice: str = Form(...),
-    tanggal_retur: str = Form(...),
+    id_detail: int = Form(...),
     qty_retur: int = Form(...),
     files: Optional[List[UploadFile]] = File([]),
     filename: Optional[List[str]] = Form(default=[]),
 ):
     data = {
-        "id_invoice": id_invoice,
-        "tanggal_retur": tanggal_retur,
         "qty_retur": qty_retur,
     }
 
     ob_data = c_inventory_subsidiary_retur()
-    return await ob_data.update(data, files, filename)
+    return await ob_data.update(data, id_detail, files, filename)
+
+
+@app.post("/api/f_trans/c_inventory_subsidiary_retur/update_file")
+async def update_file(
+    id_header: str = Form(...),
+    files: Optional[List[UploadFile]] = File([]),
+    filename: Optional[List[str]] = Form(default=[]),
+):
+    data = {"id_header": id_header}
+
+    ob_data = c_inventory_subsidiary_retur()
+    return await ob_data.update_file(data, files, filename)
+
 
 @app.post("/api/f_trans/c_inventory_subsidiary_retur/delete")
 async def delete(request: Request):
@@ -481,22 +567,22 @@ async def delete(request: Request):
     ob_data = c_inventory_subsidiary_retur()
     return await ob_data.delete(data)
 
+
 @app.get("/api/f_trans/c_inventory_subsidiary_retur/read_detail")
 async def read_detail(
     limit: int = Query(None, alias="$top"),
     orderby: str = Query(None, alias="$orderby"),
     offset: int = Query(None, alias="$skip"),
     filter: str = Query(None, alias="$filter"),
-    company_id: int = Query(None, alias="$company_id"),
-    cabang_id: int = Query(None, alias="$cabang_id"),
+    id_header: str = Query(None, alias="id_header"),
 ):
     ob_data = c_inventory_subsidiary_retur()
-    return await ob_data.read_detail(orderby, limit, offset, filter, company_id, cabang_id)
+    return await ob_data.read_detail(orderby, limit, offset, filter, id_header)
 
 
-@app.post("/api/f_trans/c_inventory_subsidiary_retur/release")
-async def release(request: Request):
+@app.post("/api/f_trans/c_inventory_subsidiary_retur/request_approve")
+async def request_approve(request: Request):
     data = await request.json()
     ob_data = c_inventory_subsidiary_retur()
     data = data["data_where_update"]
-    return await ob_data.release(data)
+    return await ob_data.request_approve(data)

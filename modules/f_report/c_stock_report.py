@@ -18,36 +18,21 @@ class c_stock_report(object):
 
     async def generate_report(self):
         query = f"""
-            SELECT 
-        C.company_name,
-        D.cabang_name,
-        E.nama_produk,
-        A.qty_tf,
-        A.current,
-        (A.qty_tf -
-        A.current) SOLD
-        FROM
-        (
-            SELECT 
-            A.to_company_id,
-            A.to_cabang_id,
-            A.produk_id,
-            SUM ( A.qty ) AS qty_tf,
-            SUM ( B.qty ) AS CURRENT 
-            FROM
-            trans_inventory_holding_transfer
-            A LEFT JOIN trans_inventory_detail B ON A.produk_id = B.produk_id 
-            AND A.to_company_id = B.company_id 
-            AND A.to_cabang_id = B.cabang_id 
-            GROUP BY
-            A.to_company_id,
-            A.to_cabang_id,
-            A.produk_id
-        )
-        A LEFT JOIN master_company C ON A.to_company_id = C.id_company
-        LEFT JOIN master_company_cabang D ON A.to_company_id = D.id_company AND A.to_cabang_id = D.id_cabang
-        LEFT JOIN master_produk E on A.produk_id = E.id_produk 
-        """
+            SELECT B.company_name, C.cabang_name, D.nama_produk, A.qty_received, qty_transfered, qty_sold, qty_received - qty_transfered - qty_sold as qty_current FROM (
+        SELECT 
+            company_id, cabang_id, produk_id,
+            SUM( CASE WHEN mutasi_type = 'TP' AND in_out = 'IN' THEN qty ELSE 0 END) qty_received,
+            SUM( CASE WHEN mutasi_type = 'TP' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_transfered,
+            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_sold
+        FROM trans_inventory_detail_mutasi
+        WHERE company_id != 1
+        GROUP BY company_id, cabang_id, produk_id
+        ) A
+        LEFT JOIN master_company B on A.company_id = B.id_company
+        LEFT JOIN master_company_cabang C on A.company_id = C.id_company and A.cabang_id = C.id_cabang
+        LEFT JOIN master_produk D on A.produk_id = D.id_produk
+        ORDER BY a.company_id, a.cabang_id
+                """
 
         res = await self.db.executeToDict(query)
         wb = self.generate_excel(res)
@@ -67,9 +52,10 @@ class c_stock_report(object):
         ws["A1"].value = "Nama Company"
         ws["B1"].value = "Nama Cabang"
         ws["C1"].value = "Nama Produk"
-        ws["D1"].value = "Quantity Transfer"
-        ws["E1"].value = "Quantity Sekarang"
+        ws["D1"].value = "Quantity Received"
+        ws["E1"].value = "Quantity Trasnfered"
         ws["F1"].value = "Quantity Terjual"
+        ws["G1"].value = "Quantity Sekarang"
 
         if len(result_data) > 0:
             data_key = []

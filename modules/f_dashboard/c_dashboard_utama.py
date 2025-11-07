@@ -59,9 +59,11 @@ class c_dashboard_utama(object):
         where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = (
+                f"""WHERE aa.tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            )
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND aa.tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
 
         sql = f"""SELECT SUM
                 ( aa.amount_total ) AS harga_total 
@@ -71,7 +73,7 @@ class c_dashboard_utama(object):
                 {where}
             """
 
-        print(sql)
+        # print(sql)
         try:
             result = await self.db.executeToDict(sql)
             # print(result)
@@ -91,9 +93,9 @@ class c_dashboard_utama(object):
         where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
 
         sql = f"""
                 SELECT SUM
@@ -149,7 +151,7 @@ class c_dashboard_utama(object):
                 """
 
         try:
-            print(sql)
+            # print(sql)
             result = await self.db.executeToDict(sql)
             # print(result)
             if len(result) == 0:
@@ -233,7 +235,7 @@ class c_dashboard_utama(object):
                             MONTH
                         ) C ON A.month_ = C.MONTH
                         """
-        print(sql_chart_value)
+        # print(sql_chart_value)
         try:
             result1 = await self.db.executeToDict(sql_chart_label)
             result_label = [kategori["month_name"] for kategori in result1]
@@ -284,11 +286,11 @@ class c_dashboard_utama(object):
         try:
             print(sql)
             result = await self.db.executeToDict(sql)
-            print(result)
+            # print(result)
 
             data = {
                 "total_out_standing": result[0]["total_out_standing"],
-                "no_due_date": result[0]["total_out_standing"],
+                "no_due_date": result[0]["no_due_date"],
                 "_1_30": result[0]["_1_30"],
                 "_31_60": result[0]["_31_60"],
                 "_60_90": result[0]["_60_90"],
@@ -553,11 +555,11 @@ class c_dashboard_utama(object):
         filter_other_conj="",
     ):
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}' and b.status_release = true"""
         if int(company_id) == 1:
-            where = f"WHERE tanggal_invoice <= '{tanggal}'"
+            where = f"WHERE tanggal_invoice <= '{tanggal}'  and b.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}'  and b.status_release = true"""
 
         if orderby == None or orderby == "":
             orderby = "company_id, cabang_id, produk_id"
@@ -631,6 +633,71 @@ class c_dashboard_utama(object):
         """
             + str_clause_count
         )
+
+        print(sql)
+
+        try:
+            result = await self.db.executeToDict(sql)
+            result_count = await self.db.executeToDict(sql_count)
+            data = {"data": result, "total": result_count[0]["count"]}
+
+        except Exception as e:
+            print(e)
+            raise HTTPException(400, ("The error is: ", str(e)))
+
+        return data
+
+    async def read_sales_header_produk(
+        self,
+        orderby,
+        limit,
+        offset,
+        filter,
+        company_id,
+        cabang_id,
+        tanggal=None,
+        filter_other="",
+        filter_other_conj="",
+    ):
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}'"""
+        if int(company_id) == 1:
+            where = f"WHERE tanggal_invoice <= '{tanggal}' and b.status_release = true"
+        elif int(company_id) == 2 and int(cabang_id) == 11:
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}' and b.status_release = true"""
+
+        str_clause = self.kendoParse().parse_query(
+            orderby, limit, offset, filter, filter_other, filter_other_conj
+        )
+        str_clause_count = self.kendoParse().parse_query(
+            "", None, None, filter, filter_other, filter_other_conj
+        )
+
+        sql = f"""
+    SELECT B.nama_produk, A.* FROM (
+        SELECT Z.produk_id, SUM(Z.qty) total_qty,SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding from trans_inventory_subsidiary_invoice Z
+        LEFT JOIN trans_inventory_subsidiary_sales_order A on Z.id_trans_sales_order = A.id_trans
+        LEFT JOIN master_company B on A.company_id = B.id_company
+        LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id = C.id_company
+        {where}
+        GROUP BY Z.produk_id
+        ) A
+        LEFT JOIN master_produk B on A.produk_id = B.id_produk
+        """
+
+        sql_count = f"""
+        SELECT Count(A.*) as count FROM (
+        SELECT Z.produk_id,SUM(Z.qty) total_qty, SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding  from trans_inventory_subsidiary_invoice Z
+        LEFT JOIN trans_inventory_subsidiary_sales_order A on Z.id_trans_sales_order = A.id_trans
+        LEFT JOIN master_company B on A.company_id = B.id_company
+        LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id
+        = C.id_company
+        {where}
+        GROUP BY Z.produk_id
+        ) A
+        LEFT JOIN master_produk B on A.produk_id = B.id_produk
+        """
+
+        # print(sql)
 
         try:
             result = await self.db.executeToDict(sql)
@@ -735,5 +802,21 @@ async def read_sales_header(
 ):
     ob_data = c_dashboard_utama()
     return await ob_data.read_sales_header(
+        orderby, limit, offset, filter, company_id, cabang_id, tanggal
+    )
+
+
+@app.get("/api/f_dashboard/c_dashboard_utama/read_sales_header_produk")
+async def read_sales_header_produk(
+    limit: int = Query(None, alias="$top"),
+    orderby: str = Query(None, alias="$orderby"),
+    offset: int = Query(None, alias="$skip"),
+    filter: str = Query(None, alias="$filter"),
+    tanggal: str = Query(None, alias="tanggal"),
+    company_id: int = Query(None, alias="company_id"),
+    cabang_id: int = Query(None, alias="cabang_id"),
+):
+    ob_data = c_dashboard_utama()
+    return await ob_data.read_sales_header_produk(
         orderby, limit, offset, filter, company_id, cabang_id, tanggal
     )

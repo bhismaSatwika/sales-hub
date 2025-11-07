@@ -36,7 +36,9 @@ class c_subsidiary_inventory_receipt_transfer(object):
             filter_other_conj = f" and "
 
             if company_id == 2 and cabang_id == 11:
-                filter_other = f" zz.to_company_id = '{company_id}'"
+                filter_other = (
+                    f" zz.to_company_id = '{company_id}' AND zz.status_release = false"
+                )
 
         else:
             filter_other = f""
@@ -395,7 +397,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                 "mutasi_type": "TP",
                 "id_references": result_inv_receipt["inv_receipt_in"][0]["id_trans"],
                 "tabel_reference": "trans_inventory_subsidiary_receipt_transfer",
-                "tanggal": result_inv_receipt["inv_receipt_in"][0]["tanggal"],
+                "tanggal": datetime.now().date(),
             }
 
             data_inv_mutasi_out = {

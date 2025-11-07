@@ -22,7 +22,7 @@ class c_holding_inventory_transfer(object):
     async def read(
         self, orderby, limit, offset, filter, filter_other="", filter_other_conj=""
     ):
-        if orderby == None or orderby == '':
+        if orderby == None or orderby == "":
             orderby = "zz.updateindb DESC"
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
@@ -99,7 +99,9 @@ class c_holding_inventory_transfer(object):
         data = {"data": result, "count": result_count[0]["count"]}
         return data
 
-    async def get_id_trans_kode(self, company_id, cabang_id, kode_trans, tahun: int, bulan: int):
+    async def get_id_trans_kode(
+        self, company_id, cabang_id, kode_trans, tahun: int, bulan: int
+    ):
         # bulan = datetime.now().month
         # tahun = datetime.now().year
 
@@ -119,7 +121,7 @@ class c_holding_inventory_transfer(object):
         id_trans = (
             str(kode_company[0]["kode"])
             + "."
-            +str(cabang_id)
+            + str(cabang_id)
             + "."
             + kode_trans
             + "."
@@ -134,9 +136,10 @@ class c_holding_inventory_transfer(object):
         }
 
         return data_kode
-    
 
-    async def get_id_trans_kode_release(self,to_company_id,to_cabang_id,kode_trans, tahun: int, bulan: int):
+    async def get_id_trans_kode_release(
+        self, to_company_id, to_cabang_id, kode_trans, tahun: int, bulan: int
+    ):
         # bulan = datetime.now().month
         # tahun = datetime.now().year
 
@@ -154,7 +157,15 @@ class c_holding_inventory_transfer(object):
         # print(no_urut[0]['current_no_urut_convert'])
 
         id_trans = (
-            str(kode_company[0]["kode"])+ "."+str(to_cabang_id)+"."+kode_trans+ "."+ str(tahun)+ "."+ str(str(bulan).zfill(2) + "." + no_urut[0]["current_no_urut_convert"])
+            str(kode_company[0]["kode"])
+            + "."
+            + str(to_cabang_id)
+            + "."
+            + kode_trans
+            + "."
+            + str(tahun)
+            + "."
+            + str(str(bulan).zfill(2) + "." + no_urut[0]["current_no_urut_convert"])
         )
 
         data_kode = {
@@ -164,15 +175,15 @@ class c_holding_inventory_transfer(object):
 
         return data_kode
 
-
-
     async def create(self, data, files: List[UploadFile], listFilename: List[str]):
 
         tanggal = datetime.strptime(data["tanggal"], "%Y-%m-%d")
         tahun = tanggal.year
         bulan = tanggal.month
 
-        data_kode = await self.get_id_trans_kode(data["company_id"], data["cabang_id"], "TR", tahun, bulan)
+        data_kode = await self.get_id_trans_kode(
+            data["company_id"], data["cabang_id"], "TR", tahun, bulan
+        )
 
         data.update(
             {
@@ -348,11 +359,11 @@ class c_holding_inventory_transfer(object):
         data_where_update = data["data_where_update"]
 
         try:
-          
-            #-------------------------------------- untuk kebutuhan validasi ---------------------------------
+
+            # -------------------------------------- untuk kebutuhan validasi ---------------------------------
             sql_valid_detail = f"""SELECT count(*) as count
                             FROM trans_inventory_detail"""
-            
+
             result_valid_detail = {
                 "inv_detail": await self.db.executeToDict(sql_valid_detail)
             }
@@ -386,20 +397,23 @@ class c_holding_inventory_transfer(object):
                                     
                                     ) bb
                                     ON aa.produk_id = bb.produk_id"""
-            
+
             result_inv_valid = {
                 "inv_valid": await self.db.executeToDict(sql_valid_inventory)
             }
-            
+
             sql_valid_transfer = f"""select qty from trans_inventory_holding_transfer where id_trans = '{data_where_update['id_trans']}'"""
             result_valid_transfer = {
                 "inv_transfer": await self.db.executeToDict(sql_valid_transfer)
             }
-            
+
             # if True :
-            if (result_valid_detail["inv_detail"][0]["count"] != 0 
-                and result_valid_detail["inv_detail"][0]["count"] != None 
-                and result_valid_transfer["inv_transfer"][0]["qty"] <= result_inv_valid["inv_valid"][0]["qty_validasi"]):
+            if (
+                result_valid_detail["inv_detail"][0]["count"] != 0
+                and result_valid_detail["inv_detail"][0]["count"] != None
+                and result_valid_transfer["inv_transfer"][0]["qty"]
+                <= result_inv_valid["inv_valid"][0]["qty_validasi"]
+            ):
 
                 sql_update_status_release_inv_transfer = f"""UPDATE trans_inventory_holding_transfer SET status_release = 'true'
                 WHERE id_trans = '{data_where_update['id_trans']}'"""
@@ -433,44 +447,54 @@ class c_holding_inventory_transfer(object):
                 data_kode = await self.get_id_trans_kode_release(
                     result_inv_transfer["inv_transfer"][0]["to_company_id"],
                     result_inv_transfer["inv_transfer"][0]["to_cabang_id"],
-                    "TR", 
-                    tahun, 
-                    bulan)
+                    "TR",
+                    tahun,
+                    bulan,
+                )
 
                 data_inv_receipt_transfer = {
                     "id_trans": data_kode["id_trans"],
-                    "company_id": result_inv_transfer["inv_transfer"][0]["to_company_id"],
+                    "company_id": result_inv_transfer["inv_transfer"][0][
+                        "to_company_id"
+                    ],
                     "cabang_id": result_inv_transfer["inv_transfer"][0]["to_cabang_id"],
                     "updateindb": datetime.today(),
                     "userupdate": auth.AuthAction.get_data_params("username"),
                     "status_release": False,
-                    "tanggal": result_inv_transfer["inv_transfer"][0]["tanggal"],
-                    "id_trans_holding_transfer": result_inv_transfer["inv_transfer"][0]["id_trans"],
+                    "tanggal": datetime.now().date(),
+                    "id_trans_holding_transfer": result_inv_transfer["inv_transfer"][0][
+                        "id_trans"
+                    ],
                     "no_urut": data_kode["no_urut"],
                 }
 
                 sql_insert_inv_receipt_transfer = self.db.genStrInsertSingleObject(
-                    data_inv_receipt_transfer, "trans_inventory_subsidiary_receipt_transfer"
+                    data_inv_receipt_transfer,
+                    "trans_inventory_subsidiary_receipt_transfer",
                 )
                 # await self.db.executeQuery(sql_insert_inv_receipt_transfer)
 
-                # eksekusi all transaksi insert, update, delete    
-                trans = await self.db.executeTrans([
-                    sql_update_status_release_inv_transfer,
-                    sql_insert_inv_receipt_transfer
-                ])
+                # eksekusi all transaksi insert, update, delete
+                trans = await self.db.executeTrans(
+                    [
+                        sql_update_status_release_inv_transfer,
+                        sql_insert_inv_receipt_transfer,
+                    ]
+                )
 
                 if trans["status"] == False:
                     message = {"status": False, "msg": "Eror. Cek query."}
                     raise HTTPException(400, str(trans["detail"]))
-                    
+
                 message = {"status": True, "msg": "success"}
-        
-            else :
-                
-                message = "celJumlah stok/kuantiti untuk produk "+str(result_valid_detail["inv_detail"][0]["count"])
-                
-                raise HTTPException(message)    
+
+            else:
+
+                message = "celJumlah stok/kuantiti untuk produk " + str(
+                    result_valid_detail["inv_detail"][0]["count"]
+                )
+
+                raise HTTPException(message)
 
         except Exception as e:
             message = {"status": False, "msg": "Eror. Cek query."}
@@ -478,7 +502,6 @@ class c_holding_inventory_transfer(object):
             raise HTTPException(status_code=400, detail=str(e))
 
         return message
-    
 
     async def get_harga_satuan_inv_detail(self, id_company, id_cabang, id_produk):
         sql = f"""SELECT harga_satuan FROM trans_inventory_detail  WHERE company_id = {id_company} AND cabang_id = {id_cabang} AND produk_id = {id_produk}"""
@@ -491,7 +514,7 @@ class c_holding_inventory_transfer(object):
         except Exception as e:
             message = {"status": "error"}
             raise HTTPException(400, ("The error is: ", str(e)))
-            
+
         return result[0]["harga_satuan"]
 
 
@@ -619,13 +642,14 @@ async def release(request: Request):
 
 
 @app.get("/api/f_trans/c_holding_inventory_transfer/get_id_trans_kode")
-async def get_id_trans_kode(company_id, cabang_id,kode_trans, tahun, bulan):
+async def get_id_trans_kode(company_id, cabang_id, kode_trans, tahun, bulan):
     ob_data = c_holding_inventory_transfer()
-    return await ob_data.get_id_trans_kode(company_id, cabang_id, kode_trans, tahun, bulan)
+    return await ob_data.get_id_trans_kode(
+        company_id, cabang_id, kode_trans, tahun, bulan
+    )
+
 
 @app.get("/api/f_trans/c_holding_inventory_transfer/get_harga_satuan_inv_detail")
 async def get_harga_satuan_inv_detail(id_company, id_cabang, id_produk):
     ob_data = c_holding_inventory_transfer()
     return await ob_data.get_harga_satuan_inv_detail(id_company, id_cabang, id_produk)
-
-

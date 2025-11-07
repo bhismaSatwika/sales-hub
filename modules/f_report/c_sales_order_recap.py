@@ -196,8 +196,31 @@ class c_sales_order_recap(object):
                                where id_sales_report = '{data_where['number_report']}'"""
 
         sql_insert_sales_recap_inventory = f"""INSERT INTO trans_sales_recap_inventory_detail (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,id_sales_report) 
-                        SELECT produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,'{data_where['number_report']}' 
-                        FROM trans_inventory_detail WHERE  harga_total <> 0"""
+                        SELECT
+                            a.produk_id,
+                            a.company_id,
+                            a.cabang_id,
+                            qty + CASE WHEN qty_ is null then 0 ELSE qty_ END as qty,
+                            ROUND((  CASE WHEN amount is null then 0 ELSE amount END + harga_total ) / (qty + CASE WHEN qty_ is null then 0 ELSE qty_ END) ,2)::FLOAT as harga_satuan,
+                            harga_total + CASE WHEN amount is null then 0 ELSE amount END as harga_total,
+                            '{data_where['number_report']}'
+                            FROM
+                            trans_inventory_detail A
+                            LEFT JOIN (
+                            SELECT  company_id, cabang_id, sum(a.qty) qty_, sum(amount) as amount from trans_inventory_subsidiary_invoice A
+                            LEFT JOIN trans_inventory_subsidiary_sales_order B on A.id_trans_sales_order = B.id_trans
+                            WHERE to_char(tanggal_invoice,'yyyy-MM') > '{data_where['tahun']}-{data_where['bulan']}' 
+                             and a.produk_id = {data_where['produk_id']} and b.status_release = true
+                            GROUP BY company_id, cabang_id 
+                            ) B on A.company_id = B.company_id and A.cabang_id = B.cabang_id
+                            WHERE
+                            harga_total <> 0 
+                            AND produk_id = {data_where['produk_id']};"""
+        print(sql_insert_sales_recap_inventory)
+
+        # sql_insert_sales_recap_inventory = f"""INSERT INTO trans_sales_recap_inventory_detail (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,id_sales_report)
+        #                 SELECT produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,'{data_where['number_report']}'
+        #                 FROM trans_inventory_detail WHERE  harga_total <> 0 and produk_id = {data_where['produk_id']}"""
 
         trans = await self.db.executeTrans(
             [
@@ -207,7 +230,6 @@ class c_sales_order_recap(object):
                 sql_insert_sales_recap_inventory,
             ]
         )
-
 
         sql_sales_recap_report_detail = f"""
                 SELECT A
@@ -230,7 +252,7 @@ class c_sales_order_recap(object):
                                 FROM
                                 (
                                 SELECT
-                                    sum(bb.amount_total) sales_total,
+                                    sum(bb.amount) sales_total,
                                     sum(bb.qty) sales_qty,
                                     sum(cc.harga_total_hpp) as hpp
                                 FROM
@@ -270,7 +292,7 @@ class c_sales_order_recap(object):
                                     LEFT JOIN master_company ff on cc.company_id=ff.id_company
                                     LEFT JOIN master_produk gg on bb.produk_id=gg.id_produk
                                     LEFT JOIN master_produk_uom_satuan hh on gg.uom_satuan=hh.id_uom_satuan
-                                    WHERE id_header='{data_where['id']}'"""
+                                    WHERE id_header='{data_where['id']}' """
 
         sql_detail_inventory = f"""SELECT 
                                         bb.company_name,
@@ -291,18 +313,18 @@ class c_sales_order_recap(object):
         detail_sales = await self.db.executeToDict(sql_detail_sales)
         detail_inventory = await self.db.executeToDict(sql_detail_inventory)
 
-
         if trans["status"] == False:
             message = {"status": False, "msg": "Eror. Cek query."}
+            print(str(trans["detail"]))
             raise HTTPException(400, str(trans["detail"]))
-        
+
         pdf = PDF(
-                sales_recap_report_detail=sales_recap_report_detail,
-                resume_sale_data=resume_sale,
-                resume_inventory_data=resume_inventory,
-                detail_sales_data=detail_sales,
-                detail_inventory_data=detail_inventory,
-            )
+            sales_recap_report_detail=sales_recap_report_detail,
+            resume_sale_data=resume_sale,
+            resume_inventory_data=resume_inventory,
+            detail_sales_data=detail_sales,
+            detail_inventory_data=detail_inventory,
+        )
         pdf.generate_report()
 
     async def get_rekap_resume(self, id_header, id_sales_report):
