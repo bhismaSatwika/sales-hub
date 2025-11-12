@@ -106,21 +106,24 @@ class c_master_user(object):
             f"""SELECT count(*) as count FROM 
                         (
                         SELECT
-                            aa.id_user,
-                            aa.username,
-                            aa.company_id,
-                            aa.cabang_id,
-                            cc.company_name,
-                            dd.cabang_name,
-                            aa.updateindb,
-                            bb.id_role,
-                            bb.role_name,
-                            bb.role_data,
-                            (CASE
-                                WHEN is_salesman = 't'
-                                THEN 'Salesman'
-                                ELSE 'Bukan Salesman'
-                            END) as status_salesman
+                       aa.id_user,
+                       aa.username,
+                       aa.name,
+                       aa.company_id,
+                       aa.cabang_id,
+                       cc.company_name,
+                       dd.cabang_name,
+                       aa.updateindb,
+                       bb.id_role,
+                       bb.role_name,
+                       bb.role_data,
+                       aa.status_release,
+                       aa.status_aktif,
+                       (CASE
+                        WHEN is_salesman = 't'
+                        THEN 'Salesman'
+                        ELSE 'Bukan Salesman'
+                        END) as status_salesman
                         FROM master_user aa
                         LEFT JOIN master_user_role bb ON aa.user_role = bb.id_role
                         LEFT JOIN master_company cc ON aa.company_id = cc.id_company

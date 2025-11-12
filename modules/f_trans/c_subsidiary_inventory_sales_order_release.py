@@ -114,12 +114,14 @@ class c_subsidiary_inventory_sales_order_release(object):
         kode_company = await self.db.executeToDict(sql_kode)
 
         sql_no_urut = f"""SELECT
-                                LPAD( CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ), 4, '0' ) AS current_no_urut_convert,
-                                CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ) AS current_no_urut 
+                                LPAD( CAST ( COALESCE ( MAX ( A.no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ), 4, '0' ) AS current_no_urut_convert,
+                                CAST ( COALESCE ( MAX ( A.no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ) AS current_no_urut 
                             FROM
-                                trans_inventory_subsidiary_invoice
+                                trans_inventory_subsidiary_invoice A
+                                LEFT JOIN trans_inventory_subsidiary_sales_order B on A.id_trans_sales_order = B.id_trans
                             WHERE
-                                produk_id = {produk_id} 
+                                company_id = {company_id} 
+                                AND cabang_id = {cabang_id}
                                 AND DATE_PART( 'year', tanggal_invoice ) = {tahun} 
                                 AND DATE_PART( 'month', tanggal_invoice ) = {bulan}"""
 

@@ -13,28 +13,27 @@ from modules import f_master
 from modules import f_trans
 import asyncio
 
+
 class c_inventory_subsidiary_retur_approval(object):
     def __init__(self):
         self.db = Db()
         self.kendoParse = kendo_parse.KendoParse
 
-    async def read(self,orderby,limit,offset,filter,company_id=None,cabang_id=None,username=None,filter_other="",filter_other_conj=""):
-        if company_id != None and cabang_id != None:
-            filter_other = (
-                f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}' AND zz.username = '{username}' AND zz.id_approval_status_detail=1"
-            )
-            filter_other_conj = f" and "
+    async def read(
+        self,
+        orderby,
+        limit,
+        offset,
+        filter,
+        company_id=None,
+        cabang_id=None,
+        username=None,
+        filter_other="",
+        filter_other_conj="",
+    ):
 
-            if company_id == 1:
-                filter_other = f""
-                filter_other_conj = f""
-
-            if company_id == 2 and cabang_id == 11:
-                filter_other = f" zz.company_id = '{company_id}'"
-
-        else:
-            filter_other = f""
-            filter_other_conj = f""
+        filter_other = f" zz.username = '{username}' AND zz.id_approval_status_detail=1 and active = true"
+        filter_other_conj = f" and "
 
         if orderby == None or orderby == "":
             orderby = "zz.updateindb DESC"
@@ -45,22 +44,29 @@ class c_inventory_subsidiary_retur_approval(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = f"""SELECT * FROM (
+        sql = (
+            f"""SELECT * FROM (
                 SELECT 
+                    bb.detail_id,
+                    bb.order_approve,
                     cc.username,
-                    aa.header_id as id_retur,
+                    aa.header_id as id_header,
                     aa.approval_status as id_approval_status_header,
                     ee.status_name as approval_status_header,
                     bb.approval_status as id_approval_status_detail,
                     ff.status_name as approval_status_detail,
                     dd.id_invoice,
+                    dd.status_release,
                     dd.tanggal_retur,
                     dd.company_id as company_id,
                     hh.company_name,
                     dd.cabang_id as cabang_id,
+                    gg.id_trans_sales_order,
                     ii.cabang_name,
                     gg.customer_id,
-                    jj.nama_customer
+                    jj.nama_customer,
+                    aa.updateindb,
+                    bb.active
                 FROM trans_approval_header aa
                 LEFT JOIN trans_approval_detail bb
                 ON aa.header_id = bb.header_id
@@ -80,25 +86,32 @@ class c_inventory_subsidiary_retur_approval(object):
                 ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
                 LEFT JOIN master_customer jj
                 ON gg.customer_id = jj.id_customer
-            ) zz """+str_clause
+            ) zz """
+            + str_clause
+        )
 
-
-        sql_count = f"""SELECT (*) as count FROM (
+        sql_count = (
+            f"""SELECT COUNT(*) as count FROM (
                 SELECT 
+                    bb.detail_id,
                     cc.username,
-                    aa.header_id as id_retur,
+                    aa.header_id as id_trans,
                     aa.approval_status as id_approval_status_header,
                     ee.status_name as approval_status_header,
                     bb.approval_status as id_approval_status_detail,
                     ff.status_name as approval_status_detail,
                     dd.id_invoice,
+                    dd.status_release,
+                    gg.id_trans_sales_order,
                     dd.tanggal_retur,
                     dd.company_id as company_id,
                     hh.company_name,
                     dd.cabang_id as cabang_id,
                     ii.cabang_name,
                     gg.customer_id,
-                    jj.nama_customer
+                    jj.nama_customer,
+                    aa.updateindb,
+                    bb.active
                 FROM trans_approval_header aa
                 LEFT JOIN trans_approval_detail bb
                 ON aa.header_id = bb.header_id
@@ -118,26 +131,50 @@ class c_inventory_subsidiary_retur_approval(object):
                 ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
                 LEFT JOIN master_customer jj
                 ON gg.customer_id = jj.id_customer
-            ) zz """+str_clause_count
+            ) zz """
+            + str_clause_count
+        )
+
+        print(sql)
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
 
         data = {"data": result, "count": result_count[0]["count"]}
         return data
-    
 
-    async def approve(self, data):        
+    async def approve(self, data):
 
-        sql_update_status_approval_detail = f"""UPDATE trans_approval_detail
-                                                    SET approval_status = CASE
-                                                        WHEN approval_status = 1 THEN 3
-                                                        WHEN approval_status = 2 THEN 1
-                                                        ELSE approval_status
-                                                    END
-                                                    WHERE header_id = '{data["id_retur"]}'"""
-        
+        sql_get_next_id_approval = f"""
+                SELECT detail_id FROM trans_approval_detail
+            WHERE order_approve > {data["order_approve"]} and active = true
+            ORDER BY order_approve asc;
+            """
 
+        res_id = await self.db.executeToDict(sql_get_next_id_approval)
+        print("res_id", res_id)
+
+        detail_id = None
+
+        queries = []
+
+        if len(res_id) > 0:
+            detail_id = res_id[0]["detail_id"]
+            sql_update_status_approval_detail = f"""update trans_approval_detail
+            SET approval_status = 1
+            WHERE detail_id = {detail_id} and active = true"""
+            queries.append(sql_update_status_approval_detail)
+
+        datetime_now = datetime.now()
+
+        # sql_update_status_header = f"""update trans_approval_header
+        #     SET approval_status = 1
+        #     WHERE header_id = {data["id_retur"]}"""
+
+        sql_update_status = f"""update trans_approval_detail
+            SET approval_status = 3, action_time = '{datetime_now}'
+            WHERE detail_id = {data["detail_id"]} and active = true"""
+        queries.append(sql_update_status)
 
         sql_update_status_approval_header = f"""UPDATE trans_approval_header hh
                                                     SET approval_status = 3
@@ -146,96 +183,59 @@ class c_inventory_subsidiary_retur_approval(object):
                                                         SELECT approval_status
                                                         FROM trans_approval_detail dd
                                                         WHERE dd.header_id = '{data["id_retur"]}'
-                                                        AND dd.approval_status <> 3
+                                                        AND dd.approval_status <> 3 
+                                                        AND dd.active = true
                                                     )"""
+        queries.append(sql_update_status_approval_header)
 
-        
-        sql_insert_mutasi = f"""INSERT INTO trans_inventory_detail_mutasi (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,updateindb,userupdate,in_out,mutasi_type,id_references,tabel_reference,tanggal) 
-                                SELECT 
-                                    aa.produk_id,
-                                    bb.company_id,
-                                    bb.cabang_id,
-                                    aa.qty_retur as qty,
-                                    dd.harga_satuan,
-                                    dd.harga_total,
-                                    '{datetime.today()}' as updateindb,
-                                    '{auth.AuthAction.get_data_params("username")}' as userupdate,
-                                    'IN' as in_out,
-                                    'RT' as mutasi_type,
-                                    aa.id_header as id_references,
-                                    'trans_inventory_subsidiary_retur_detail' as tabel_reference,
-                                    bb.tanggal_retur as tanggal
-                                FROM trans_inventory_subsidiary_retur_detail aa
-                                LEFT JOIN trans_inventory_subsidiary_retur_header bb
-                                ON aa.id_header = bb.id_header
-                                LEFT JOIN trans_inventory_subsidiary_invoice cc
-                                ON bb.id_invoice = cc.id_trans
-                                LEFT JOIN trans_inventory_subsidiary_sales_order dd
-                                ON cc.id_trans_sales_order = dd.id_trans
-                                WHERE aa.id_header = {data["id_retur"]} """
+        print(queries)
 
-
-        sql_delete_inventory_detail = f"""DELETE FROM trans_inventory_detail WHERE produk_id = {data["produk_id"]} AND company_id = {data["company_id"]} AND cabang_id = {data["cabang_id"]}"""
-
-        sql_insert_inventory_detail = f"""INSERT INTO trans_inventory_detail (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,updateindb, userupdate) 
-                                        SELECT
-                                            produk_id,
-                                            company_id,
-                                            cabang_id,
-                                            qty_in - qty_out AS qty,
-                                            ROUND( ( ht_in - ht_out ) / ( qty_in - qty_out ), 0 ) AS harga_satuan,
-                                            ht_in - ht_out AS harga_total,
-                                            '{datetime.today()}',
-                                            '{auth.AuthAction.get_data_params("username")}' 
-                                        FROM
-                                            (
-                                            SELECT
-                                                produk_id,
-                                                company_id,
-                                                cabang_id,
-                                                SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END ) qty_in,
-                                                SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END ) qty_out,
-                                                SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END ) ht_in,
-                                                SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END ) ht_out 
-                                        FROM
-                                            trans_inventory_detail_mutasi 
-                                        WHERE
-                                            produk_id = {data["produk_id"]} 
-                                            AND company_id = {data["company_id"]} 
-                                            AND cabang_id = {data["cabang_id"]} 
-                                        GROUP BY
-                                            produk_id,
-                                            company_id,
-                                            cabang_id 
-                                            ) aa"""
-        
         try:
-          print(sql_update_status_approval_detail)
-          print("\n\n")
-          print(sql_update_status_approval_header)
-          print("\n\n")
-          print(sql_insert_mutasi)
-          print("\n\n")
-          print(sql_delete_inventory_detail)
-          print("\n\n")
-          print(sql_insert_inventory_detail)
-          print("\n\n")
 
+            res = await self.db.executeTrans(queries)
+            if res["status"] == False:
+                print(res["detail"])
+                raise HTTPException(status_code=400, detail=res["detail"])
 
-          await self.db.executeTrans([sql_update_status_approval_detail, 
-                                      sql_update_status_approval_header,
-                                      sql_insert_mutasi,
-                                      sql_delete_inventory_detail,
-                                      sql_insert_inventory_detail
-                                      ])
-
-          message = {"status": "success"}
+            message = {"status": "success"}
         except Exception as e:
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
 
+    async def reject(self, data):
+        action_time = datetime.now()
+        update_description = f"""
+                UPDATE trans_approval_detail
+        SET description = '{data["description"]}', approval_status = 4
+        WHERE detail_id = {data["detail_id"]}  and active = true
+"""
+        sql_reject = f"""
+                UPDATE trans_approval_detail
+        SET approval_status = 5, action_time = '{action_time}'
+        WHERE order_approve > {data["order_approve"]} and header_id = '{data["id_retur"]}'
+        and active = true
+        """
 
+        sql_update_status_approval_header = f"""UPDATE trans_approval_header
+                                                    SET approval_status = 4, description = '{data["description"]}', updateindb = '{action_time}'
+                                                    WHERE header_id = '{data["id_retur"]}'"""
+
+        print(sql_update_status_approval_header)
+
+        try:
+            res = await self.db.executeTrans(
+                [update_description, sql_reject, sql_update_status_approval_header]
+            )
+            if res["status"] == False:
+                print(res["detail"])
+                raise HTTPException(status_code=400, detail=res["detail"])
+
+            message = {"status": "success"}
+        except Exception as e:
+            message = {"status": "error"}
+            raise HTTPException(status_code=400, detail=str(e))
+        return message
 
 
 """
@@ -247,7 +247,8 @@ for post method and other method, check tutorial from
 https://fastapi.tiangolo.com/
 """
 
-@app.get("/api/f_trans/c_inventory_subsidiary_retur/read")
+
+@app.get("/api/f_trans/c_inventory_subsidiary_retur_approval/read")
 async def read(
     limit: int = Query(None, alias="$top"),
     orderby: str = Query(None, alias="$orderby"),
@@ -255,14 +256,25 @@ async def read(
     filter: str = Query(None, alias="$filter"),
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
-    username: str = Query(None, alias="$username"),
+    username: str = Query(None, alias="username"),
 ):
     ob_data = c_inventory_subsidiary_retur_approval()
-    return await ob_data.read(orderby, limit, offset, filter, company_id, cabang_id,username)
+    return await ob_data.read(
+        orderby, limit, offset, filter, company_id, cabang_id, username
+    )
+
 
 @app.post("/api/f_trans/c_inventory_subsidiary_retur_approval/approve")
 async def approve(request: Request):
     data = await request.json()
     ob_data = c_inventory_subsidiary_retur_approval()
-    data = data["data_where_update"]
+
     return await ob_data.approve(data)
+
+
+@app.post("/api/f_trans/c_inventory_subsidiary_retur_approval/reject")
+async def reject(request: Request):
+    data = await request.json()
+    ob_data = c_inventory_subsidiary_retur_approval()
+
+    return await ob_data.reject(data)

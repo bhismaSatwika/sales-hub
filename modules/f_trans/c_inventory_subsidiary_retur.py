@@ -75,14 +75,18 @@ class c_inventory_subsidiary_retur(object):
                     bb.customer_id,
                     cc.nama_customer,
                     cc.company_id,
-                    cc.cabang_id,
+                     cc.cabang_id,
                     dd.company_name,
-                    ee.cabang_name
+                    ee.cabang_name,
+                    gg.status_name,
+                    ff.approval_status
                 FROM trans_inventory_subsidiary_retur_header aa
                 LEFT JOIN trans_inventory_subsidiary_invoice bb ON aa.id_invoice = bb.id_trans
                 LEFT JOIN master_customer cc ON bb.customer_id = cc.id_customer
                 LEFT JOIN master_company dd ON cc.company_id = dd.id_company
-                LEFT JOIN master_company_cabang ee ON cc.cabang_id = ee.id_cabang) zz """
+                LEFT JOIN master_company_cabang ee ON cc.cabang_id = ee.id_cabang
+                LEFT JOIN trans_approval_header ff ON aa.id_header = ff.header_id
+                LEFT JOIN master_approval_status gg ON ff.approval_status = gg.id_status) zz """
             + str_clause
         )
 
@@ -105,16 +109,20 @@ class c_inventory_subsidiary_retur(object):
                     bb.customer_id,
                     cc.nama_customer,
                     cc.company_id,
-                    cc.cabang_id,
+                     cc.cabang_id,
                     dd.company_name,
-                    ee.cabang_name  
+                    ee.cabang_name,
+                    gg.status_name
                 FROM trans_inventory_subsidiary_retur_header aa
                 LEFT JOIN trans_inventory_subsidiary_invoice bb ON aa.id_invoice = bb.id_trans
                 LEFT JOIN master_customer cc ON bb.customer_id = cc.id_customer
                 LEFT JOIN master_company dd ON cc.company_id = dd.id_company
-                LEFT JOIN master_company_cabang ee ON cc.cabang_id = ee.id_cabang) zz """
+                LEFT JOIN master_company_cabang ee ON cc.cabang_id = ee.id_cabang
+                LEFT JOIN trans_approval_header ff ON aa.id_header = ff.header_id
+                LEFT JOIN master_approval_status gg ON ff.approval_status = gg.id_status) zz """
             + str_clause_count
         )
+        print(sql)
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
@@ -435,41 +443,51 @@ class c_inventory_subsidiary_retur(object):
             "updateindb": datetime.today(),
         }
 
-        sql_insert_header_approval = self.db.genStrInsertSingleObject(
-            data_header_approval, "trans_inventory_subsidiary_retur_header"
-        )
+        queries = []
+        if data["status_release"] == True:
+            sql = f"""
+            UPDATE trans_approval_detail SET active = false WHERE header_id = '{data["id_header"]}'
+        """
+            sql_update = f"""UPDATE trans_approval_header SET approval_status = 1 WHERE header_id = '{data["id_header"]}'"""
+            queries.append(sql)
+            queries.append(sql_update)
+
+        else:
+            sql_update_status_release = f"""UPDATE trans_inventory_subsidiary_retur_header SET status_release = 'TRUE' 
+        WHERE company_id =  {data["company_id"]} AND cabang_id ={data["cabang_id"]} AND  id_header = '{data["id_header"]}'"""
+            queries.append(sql_update_status_release)
+
+            sql_insert_header_approval = self.db.genStrInsertSingleObject(
+                data_header_approval, "trans_approval_header"
+            )
+            queries.append(sql_insert_header_approval)
 
         # insert ke tabel detail_approval
-        sql_detail_approval = f"""INSERT INTO trans_approval_detail (header_id,master_approval,order_approve,approval_status,approval_type) 
+        sql_detail_approval = f"""INSERT INTO trans_approval_detail (header_id,master_approval_id,order_approve,approval_status,approval_type) 
         SELECT 
             '{data["id_header"]}' AS header_id,
-            id AS master_approval,
+            id AS master_approval_id,
             approval_order AS order_approve,
             (CASE 
                 WHEN approval_order = 1
                     THEN 1
-                WHEN approval_order = 2
-                    THEN 2
+                ELSE 2
             END) AS approval_status,
             approval_type AS approval_type
         FROM master_approval 
         WHERE approval_company_id = {data["company_id"]} AND approval_cabang_id = {data["cabang_id"]}"""
+        queries.append(sql_detail_approval)
 
-        sql_insert_detail_approval = self.db.genStrInsertSingleObject(
-            sql_detail_approval, "trans_inventory_subsidiary_retur_detail"
-        )
-
-        sql_update_status_release = f"""UPDATE trans_inventory_subsidiary_retur_header SET status_release = 'TRUE' 
-        WHERE company_id =  {data["company_id"]} AND cabang_id ={data["cabang_id"]} AND  id_header = '{data["id_header"]}'"""
+        # sql_insert_detail_approval = self.db.genStrInsertSingleObject(
+        #     sql_detail_approval, "trans_inventory_subsidiary_retur_detail"
+        # )
 
         try:
-            await self.db.executeTrans(
-                [
-                    sql_insert_header_approval,
-                    sql_insert_detail_approval,
-                    sql_update_status_release,
-                ]
-            )
+            trans = await self.db.executeTrans(queries)
+            if trans["status"] == False:
+                raise HTTPException(
+                    400, ("error ketika request approval: ", trans["message"])
+                )
             return "success"
         except Exception as e:
             raise HTTPException(400, ("The error is: ", str(e)))
@@ -507,7 +525,7 @@ async def get_td_files(id_trans: str = Query(None, alias="id_trans")):
 @app.get("/api/f_trans/c_inventory_subsidiary_retur/stream_file")
 async def stream_file(filename: str = Query(None, alias="filename")):
     ob_data = c_inventory_subsidiary_retur()
-    path_parent = params.loc["file_inventory_retur"]
+    path_parent = params.loc["file_sales_retur"]
     path = path_parent + "/" + filename
     return await ob_data.stream_file(path, filename)
 
@@ -585,4 +603,5 @@ async def request_approve(request: Request):
     data = await request.json()
     ob_data = c_inventory_subsidiary_retur()
     data = data["data_where_update"]
+    print(data)
     return await ob_data.request_approve(data)

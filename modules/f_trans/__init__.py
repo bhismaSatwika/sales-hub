@@ -1,4 +1,4 @@
-__all__=[
+__all__ = [
     "c_inventory_detail",
     "c_holding_inventory_submit",
     "c_holding_inventory_transfer",
@@ -8,7 +8,6 @@ __all__=[
     "c_inventory_subsidiary_invoice",
     "c_subsidiary_inventory_sales_order_release",
     "c_inventory_subsidiary_retur",
-    "c_inventory_subsidiary_retur_approval"
-            ]
-            
-            
+    "c_inventory_subsidiary_retur_approval",
+    "c_user_approval",
+]
