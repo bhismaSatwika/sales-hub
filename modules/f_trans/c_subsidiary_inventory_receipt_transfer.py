@@ -405,10 +405,10 @@ class c_subsidiary_inventory_receipt_transfer(object):
                 "company_id": result_inv_receipt["inv_receipt_out"][0]["company_id"],
                 "cabang_id": result_inv_receipt["inv_receipt_out"][0]["cabang_id"],
                 "qty": int(result_inv_receipt["inv_receipt_out"][0]["qty"]),
-                "harga_satuan": int(
+                "harga_satuan": float(
                     result_inv_receipt["inv_receipt_in"][0]["harga_satuan"]
                 ),
-                "harga_total": int(
+                "harga_total": float(
                     result_inv_receipt["inv_receipt_in"][0]["harga_total"]
                 ),
                 "updateindb": datetime.today(),
@@ -431,11 +431,14 @@ class c_subsidiary_inventory_receipt_transfer(object):
                 data_inv_mutasi_out, "trans_inventory_detail_mutasi"
             )
             # await self.db.executeQuery(sql_insert_inv_mutasi_out)
+            print("Daerah 1")
 
         except Exception as e:
 
             print(str(e))
             raise HTTPException(400, ("error insert mutasi IN dan OUT: ", str(e)))
+
+        result_detail_mutasi = {}
 
         try:
 
@@ -444,7 +447,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                                         cabang_id,
                                         qty,
                                         CASE 
-                                            WHEN harga_total = 0 and qty = 0
+                                            WHEN harga_total = 0 or qty = 0
                                             THEN 0 
                                             ELSE ROUND(harga_total/qty,0)
                                         END as harga_satuan,
@@ -470,7 +473,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                                         cabang_id,
                                         qty,
                                         CASE 
-                                            WHEN harga_total = 0 and qty = 0
+                                            WHEN harga_total = 0 or qty = 0
                                             THEN 0 
                                             ELSE ROUND(harga_total/qty,0)
                                         END as harga_satuan,
@@ -496,6 +499,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
             )
             if trans["status"] == False:
                 message = {"status": False, "msg": "Eror. Cek query."}
+                print("ERRROORR", str(trans["detail"]))
                 raise HTTPException(400, str(trans["detail"]))
 
             result_detail_mutasi = {
@@ -557,10 +561,12 @@ class c_subsidiary_inventory_receipt_transfer(object):
             sql_insert_inv_detail_out = self.db.genStrInsertSingleObject(
                 data_inv_detail_out, "trans_inventory_detail"
             )
+            print("\n\n Daerah 3")
+
             # await self.db.executeQuery(sql_insert_inv_detail_out)
 
             # eksekusi all transaksi insert, update, delete
-            await self.db.executeTrans(
+            trans = await self.db.executeTrans(
                 [
                     sql_update_status_release_inv_receipt,
                     sql_delete_inv_detail_in,
@@ -569,6 +575,13 @@ class c_subsidiary_inventory_receipt_transfer(object):
                     sql_insert_inv_detail_out,
                 ]
             )
+
+            if trans["status"] == False:
+                print("\n\nDaerah 4")
+                message = {"status": False, "msg": "Eror. Cek query."}
+                print(str(trans["detail"]))
+                raise HTTPException(400, str(trans["detail"]))
+            print("\n\nDaerah 5")
 
         except Exception as e:
             where_del_in = {
@@ -579,10 +592,10 @@ class c_subsidiary_inventory_receipt_transfer(object):
                 "id_trans": result_detail_mutasi["detail_mutasi_out"][0]["id_trans"],
             }
 
-            sql_del_mutasi_in = await self.db.genDeleteObject(
+            sql_del_mutasi_in = self.db.genDeleteObject(
                 where_del_in, "trans_inventory_detail_mutasi"
             )
-            sql_del_mutasi_out = await self.db.genDeleteObject(
+            sql_del_mutasi_out = self.db.genDeleteObject(
                 where_del_out, "trans_inventory_detail_mutasi"
             )
 

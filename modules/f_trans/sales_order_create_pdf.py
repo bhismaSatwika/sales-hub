@@ -142,8 +142,8 @@ class PDF(FPDF):
         )
 
         self.set_x(left_margin + 5)
-        self.cell(
-            w=50,
+        self.multi_cell(
+            w=125,
             h=4,
             text=self.data["alamat"],
             align="L",
@@ -228,6 +228,7 @@ class PDF(FPDF):
             new_x="LMARGIN",
             new_y="TOP",
         )
+        salesman_y = self.get_y()
 
         self.set_font("Poppins", "I", 9)
         self.set_y(y - 3)
@@ -241,16 +242,42 @@ class PDF(FPDF):
             new_y="NEXT",
         )
 
+        harga_total_ppn_pph = self.data["harga_total_ppn_pph"]
+
         self.set_font("Arial", "B", 10)
         self.set_x(full_w - full_w / 4)
         self.cell(
             w=w / 2,
             h=4,
-            text=f"Rp. {self.convert_value(self.data['harga_total_ppn_pph'])}",
+            text=f"Rp. {self.convert_value(harga_total_ppn_pph)}",
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
         )
+
+        ato = self.data["ato"]
+        if ato > 0 and ato != harga_total_ppn_pph:
+            self.set_font("Poppins", "I", 9)
+            self.set_x(full_w - full_w / 4)
+            self.cell(
+                w=w / 2,
+                h=5,
+                text="Total Sisa :",
+                align="L",
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
+
+            self.set_font("Arial", "B", 10)
+            self.set_x(full_w - full_w / 4)
+            self.cell(
+                w=w / 2,
+                h=4,
+                text=f"Rp. {self.convert_value(ato)}",
+                align="L",
+                new_x="LMARGIN",
+                new_y="NEXT",
+            )
 
         self.set_font("Poppins", "I", 9)
         self.set_x(full_w - full_w / 4)
@@ -292,8 +319,11 @@ class PDF(FPDF):
         )
 
         self.ln(7)
+        jenis_pembayaran_y = self.get_y()
 
         self.set_font("Poppins", "", 9)
+        if salesman_y > jenis_pembayaran_y:
+            self.set_y(salesman_y + 5)
 
     def table_data(self):
         page_width = self.w

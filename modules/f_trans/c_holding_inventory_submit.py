@@ -348,8 +348,10 @@ class c_holding_inventory_submit(object):
                 "company_id": result_inv_submit["inv_submit"][0]["company_id"],
                 "cabang_id": result_inv_submit["inv_submit"][0]["cabang_id"],
                 "qty": int(result_inv_submit["inv_submit"][0]["qty"]),
-                "harga_satuan": int(result_inv_submit["inv_submit"][0]["harga_satuan"]),
-                "harga_total": int(result_inv_submit["inv_submit"][0]["harga_total"]),
+                "harga_satuan": float(
+                    result_inv_submit["inv_submit"][0]["harga_satuan"]
+                ),
+                "harga_total": float(result_inv_submit["inv_submit"][0]["harga_total"]),
                 "updateindb": datetime.today(),
                 "userupdate": auth.AuthAction.get_data_params("username"),
                 "in_out": "IN",
