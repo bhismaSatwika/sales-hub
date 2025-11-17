@@ -5,6 +5,7 @@ import mimetypes
 from typing import List, Optional
 from fastapi import HTTPException, Query, Request, Form, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel
 from config import params
 from library.router import app
 from library.db import Db
@@ -17,6 +18,18 @@ from modules.f_trans.sales_order_create_pdf import PDF
 from modules.f_trans.delivery_order_create_pdf import PDF as PDF_DO
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font
+
+
+class Product(BaseModel):
+    produk_id: int
+    qty: int
+    harga_satuan: float
+    harga_total: float
+    ppn_percent: float
+    ppn_value: float
+    pph_22_percent: float
+    pph_22_value: float
+    harga_total_ppn_pph: float
 
 
 class c_subsidiary_inventory_sales_order(object):
@@ -1159,45 +1172,89 @@ async def read(
 
 @app.post("/api/f_trans/c_subsidiary_inventory_sales_order/create")
 async def create(
-    produk_id: int = Form(...),
     company_id: int = Form(...),
     cabang_id: int = Form(...),
-    qty: int = Form(...),
-    harga_satuan: float = Form(...),
-    harga_total: float = Form(...),
     tanggal: str = Form(...),
     customer_id: int = Form(...),
-    ppn_percent: float = Form(...),
-    ppn_value: float = Form(...),
-    pph_22_percent: float = Form(...),
-    pph_22_value: float = Form(...),
     harga_total_ppn_pph: float = Form(...),
+    total_ppn_pph: float = Form(...),
     files: Optional[List[UploadFile]] = File([]),
     filename: Optional[List[str]] = Form(default=[]),
     id_pembayaran: int = Form(...),
     salesman: int = Form(...),
     biaya_admin: float = Form(...),
+    product: List[str] = Form(...),
 ):
     data = {
-        "produk_id": produk_id,
         "company_id": company_id,
         "cabang_id": cabang_id,
-        "qty": qty,
-        "harga_satuan": harga_satuan,
-        "harga_total": harga_total,
         "tanggal": tanggal,
         "customer_id": customer_id,
-        "ppn_percent": ppn_percent,
-        "ppn_value": ppn_value,
-        "pph_22_percent": pph_22_percent,
-        "pph_22_value": pph_22_value,
         "harga_total_ppn_pph": harga_total_ppn_pph,
         "id_pembayaran": id_pembayaran,
         "salesman": salesman,
         "biaya_admin": biaya_admin,
     }
-    ob_data = c_subsidiary_inventory_sales_order()
-    return await ob_data.create(data, files, filename)
+
+    try:
+        products: List[Product] = [Product(**json.loads(p)) for p in product]
+    except json.JSONDecodeError as e:
+        raise HTTPException(
+            status_code=400, detail=f"Invalid JSON in `product` field: {e}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=f"Product data does not match schema: {e}"
+        )
+
+    print(data)
+    print(products)
+
+    # ob_data = c_subsidiary_inventory_sales_order()
+    # return await ob_data.create(data, files, filename)
+
+
+# @app.post("/api/f_trans/c_subsidiary_inventory_sales_order/create")
+# async def create(
+#     produk_id: int = Form(...),
+#     company_id: int = Form(...),
+#     cabang_id: int = Form(...),
+#     qty: int = Form(...),
+#     harga_satuan: float = Form(...),
+#     harga_total: float = Form(...),
+#     tanggal: str = Form(...),
+#     customer_id: int = Form(...),
+#     ppn_percent: float = Form(...),
+#     ppn_value: float = Form(...),
+#     pph_22_percent: float = Form(...),
+#     pph_22_value: float = Form(...),
+#     harga_total_ppn_pph: float = Form(...),
+#     files: Optional[List[UploadFile]] = File([]),
+#     filename: Optional[List[str]] = Form(default=[]),
+#     id_pembayaran: int = Form(...),
+#     salesman: int = Form(...),
+#     biaya_admin: float = Form(...),
+# ):
+#     data = {
+#         "produk_id": produk_id,
+#         "company_id": company_id,
+#         "cabang_id": cabang_id,
+#         "qty": qty,
+#         "harga_satuan": harga_satuan,
+#         "harga_total": harga_total,
+#         "tanggal": tanggal,
+#         "customer_id": customer_id,
+#         "ppn_percent": ppn_percent,
+#         "ppn_value": ppn_value,
+#         "pph_22_percent": pph_22_percent,
+#         "pph_22_value": pph_22_value,
+#         "harga_total_ppn_pph": harga_total_ppn_pph,
+#         "id_pembayaran": id_pembayaran,
+#         "salesman": salesman,
+#         "biaya_admin": biaya_admin,
+#     }
+#     ob_data = c_subsidiary_inventory_sales_order()
+#     return await ob_data.create(data, files, filename)
 
 
 @app.post("/api/f_trans/c_subsidiary_inventory_sales_order/update")
