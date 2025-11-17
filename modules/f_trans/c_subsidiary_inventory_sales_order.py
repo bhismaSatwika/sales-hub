@@ -20,18 +20,6 @@ from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font
 
 
-class Product(BaseModel):
-    produk_id: int
-    qty: int
-    harga_satuan: float
-    harga_total: float
-    ppn_percent: float
-    ppn_value: float
-    pph_22_percent: float
-    pph_22_value: float
-    harga_total_ppn_pph: float
-
-
 class c_subsidiary_inventory_sales_order(object):
     def __init__(self):
         self.db = Db()
@@ -205,6 +193,7 @@ class c_subsidiary_inventory_sales_order(object):
 
         data = {"data": result, "count": result_count[0]["count"]}
         return data
+    
 
     async def get_id_trans_kode(self, company_id, cabang_id, kode_trans, tahun, bulan):
         # bulan = datetime.now().month
@@ -218,7 +207,7 @@ class c_subsidiary_inventory_sales_order(object):
         sql_no_urut = f"""SELECT 
                             LPAD( CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ), 4, '0' ) AS current_no_urut_convert,
                             CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ) AS current_no_urut 
-                        FROM trans_inventory_subsidiary_sales_order 
+                        FROM trans_inventory_subsidiary_sales_order_header
                         WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal) = {tahun} AND DATE_PART('month', tanggal) = {bulan}"""
         no_urut = await self.db.executeToDict(sql_no_urut)
         # print(no_urut[0]['current_no_urut_convert'])
@@ -330,8 +319,90 @@ class c_subsidiary_inventory_sales_order(object):
         }
 
         return data_kode
+    
+    async def create(self, data, files: List[UploadFile], listFilename: List[str],product):
+        tanggal = datetime.strptime(data["tanggal"], "%Y-%m-%d")
+        tahun = tanggal.year
+        bulan = tanggal.month
 
-    async def create(self, data, files: List[UploadFile], listFilename: List[str]):
+        data_kode = await self.get_id_trans_kode(
+            data["company_id"], data["cabang_id"], "SO", tahun, bulan
+        )
+        
+        # print(data)
+        # print("\n\n")
+        # print(products)
+        # print("\n\n")
+
+        data.update(
+            {
+                "userupdate": auth.AuthAction.get_data_params("username"),
+                "id_trans": data_kode["id_trans"],
+                "no_urut": data_kode["no_urut"],
+            }
+        )
+
+        if len(files) > 0:
+            path_parent = params.loc["file_inventory_sales_order"]
+            file_insert_query = []
+
+            for i, v in enumerate(files):
+
+                filename = data_kode["id_trans"] + "_" + v.filename
+                path = path_parent + "/" + filename
+                print(path)
+
+                content = await v.read()
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                file_ = open(path, "ab")
+                file_.write(content)
+                file_.close()
+
+                file_insert_query.append(
+                    f"""INSERT INTO files_upload (id_trans, file_name, files)
+                VALUES('{data_kode["id_trans"]}', '{listFilename[i]}', '{filename}');"""
+                )
+
+        sqlHeader = self.db.genStrInsertSingleObject(
+            data, "trans_inventory_subsidiary_sales_order_header"
+        )
+
+
+        try:
+            products=[{**json.loads(p),
+                        'id_trans':data_kode["id_trans"],
+                        'company_id':data["company_id"],
+                        'cabang_id':data["cabang_id"],
+                        'userupdate': auth.AuthAction.get_data_params("username")} for p in product]
+            
+            # print(products)
+            # print("\n\n")
+            
+            sqlDetail = self.db.genStrInsertArrayObject(products,"trans_inventory_subsidiary_sales_order")
+            
+            # print(sqlHeader)
+            # print(sqlDetail)
+            
+            trans = await self.db.executeTrans([sqlHeader,sqlDetail])
+
+            if trans["status"]== False :
+                raise HTTPException(400, ("The error is: ", str(e)))
+
+            if len(files) > 0:
+                try:
+                    for query in file_insert_query:
+                        # print(query)
+                        await self.db.executeQuery(query)
+                except Exception as e:
+                    raise HTTPException(400, ("The error is: ", str(e)))
+
+            return "success"
+        except Exception as e:
+            print(e)
+            raise HTTPException(400, ("The error is: ", str(e)))
+
+
+    async def create_old(self, data, files: List[UploadFile], listFilename: List[str]):
 
         tanggal = datetime.strptime(data["tanggal"], "%Y-%m-%d")
         # tanggal = '2025-08-04'
@@ -1177,13 +1248,15 @@ async def create(
     tanggal: str = Form(...),
     customer_id: int = Form(...),
     harga_total_ppn_pph: float = Form(...),
-    total_ppn_pph: float = Form(...),
+    total_ppn: float = Form(...),
+    total_pph: float = Form(...),
     files: Optional[List[UploadFile]] = File([]),
     filename: Optional[List[str]] = Form(default=[]),
     id_pembayaran: int = Form(...),
     salesman: int = Form(...),
     biaya_admin: float = Form(...),
     product: List[str] = Form(...),
+    harga_total_hpp: float = Form(...),
 ):
     data = {
         "company_id": company_id,
@@ -1191,27 +1264,23 @@ async def create(
         "tanggal": tanggal,
         "customer_id": customer_id,
         "harga_total_ppn_pph": harga_total_ppn_pph,
+        "total_ppn": total_ppn,
+        "total_pph": total_pph,
         "id_pembayaran": id_pembayaran,
         "salesman": salesman,
         "biaya_admin": biaya_admin,
+        "harga_total_hpp": harga_total_hpp,
     }
 
-    try:
-        products: List[Product] = [Product(**json.loads(p)) for p in product]
-    except json.JSONDecodeError as e:
-        raise HTTPException(
-            status_code=400, detail=f"Invalid JSON in `product` field: {e}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=f"Product data does not match schema: {e}"
-        )
+    # print(data)
+    # print("\n\n")
+    # print(product)
+    # print("\n\n")
+    # print(products)
+    # print("\n\n")
 
-    print(data)
-    print(products)
-
-    # ob_data = c_subsidiary_inventory_sales_order()
-    # return await ob_data.create(data, files, filename)
+    ob_data = c_subsidiary_inventory_sales_order()
+    return await ob_data.create(data, files, filename,product)
 
 
 # @app.post("/api/f_trans/c_subsidiary_inventory_sales_order/create")

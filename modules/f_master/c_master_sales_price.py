@@ -148,18 +148,43 @@ class c_master_sales_price(object):
         return data
 
     async def get_price(self, id_company, id_cabang, id_produk):
-        sql = f"""SELECT price FROM master_sales_price WHERE id_company = {id_company} AND id_cabang = {id_cabang} AND id_produk = {id_produk} AND status_release = 't' AND status_aktif = 't'"""
+        sql = f"""SELECT
+                    (CASE 
+                    WHEN aa.harga_satuan IS NULL
+                    THEN 0
+                    ELSE aa.harga_satuan
+                    END) as harga_satuan_hpp,
+                    (CASE
+                    WHEN bb.price IS NULL
+                    THEN 0
+                    ELSE bb.price
+                    END) as price
+                FROM
+                    trans_inventory_detail aa 
+                    LEFT JOIN master_sales_price bb
+                    ON aa.company_id = bb.id_company
+                    AND aa.cabang_id = bb.id_cabang
+                    AND aa.produk_id = bb.id_produk 
+                WHERE
+                    aa.company_id = {id_company}
+                    AND aa.cabang_id = {id_cabang} 
+                    AND aa.produk_id = {id_produk} 
+                    AND bb.status_release = 't' 
+                    AND bb.status_aktif = 't'"""
         try:
             result = await self.db.executeToDict(sql)
             # print(result)
             if len(result) == 0:
-                return 0
+                return {
+                    "price":0,
+                    "harga_satuan_hpp":0
+                }
             message = {"status": "success"}
         except Exception as e:
             message = {"status": "error"}
             raise HTTPException(400, ("The error is: ", str(e)))
             
-        return result[0]["price"]
+        return result[0]
     
     async def release(self, data_where):
     
