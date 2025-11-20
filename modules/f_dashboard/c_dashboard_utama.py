@@ -12,16 +12,16 @@ class c_dashboard_utama(object):
         self.db = Db()
         self.kendoParse = kendo_parse.KendoParse
 
-    async def get_inventori(self, company_id, cabang_id, tanggal):
+    async def get_inventori(self, company_id, cabang_id, tanggal, tanggal_start):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         sql = f"""SELECT
                     SUM(qty) as qty
@@ -52,31 +52,28 @@ class c_dashboard_utama(object):
 
         return result[0]["qty"]
 
-    async def get_sales(self, company_id, cabang_id, tanggal):
+    async def get_sales(self, company_id, cabang_id, tanggal, tanggal_start):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         if int(company_id) == 1:
-            where = (
-                f"""WHERE aa.tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
-            )
+            where = f"""WHERE aa.tanggal_invoice BETWEEN '{tanggal_start}' AND '{tanggal}'"""
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND aa.tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND aa.tanggal_invoice BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
-        sql = f"""SELECT SUM
-                ( aa.amount_total ) AS harga_total 
+        sql = f"""SELECT SUM (AA.amount) + sum (aa.amount_pph) + sum(aa.amount_ppn) - sum(bb.biaya_admin) AS harga_total 
                 FROM
                 trans_inventory_subsidiary_invoice aa
                 LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
                 {where}
             """
 
-        # print(sql)
+        print(sql)
         try:
             result = await self.db.executeToDict(sql)
-            # print(result)
+            print("\n\n\n\n", result)
             if len(result) == 0:
                 return 0
             message = {"status": "success"}
@@ -86,16 +83,20 @@ class c_dashboard_utama(object):
 
         return result[0]["harga_total"]
 
-    async def get_outstanding_payment(self, company_id, cabang_id, tanggal):
+    async def get_outstanding_payment(
+        self, company_id, cabang_id, tanggal, tanggal_start
+    ):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = (
+                f"""WHERE tanggal_invoice BETWEEN '{tanggal_start}' AND '{tanggal}'"""
+            )
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND tanggal_invoice BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND tanggal_invoice BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         sql = f"""
                 SELECT SUM
@@ -119,18 +120,18 @@ class c_dashboard_utama(object):
 
         return result[0]["outstanding_payment"]
 
-    async def get_paid_payment(self, company_id, cabang_id, tanggal):
+    async def get_paid_payment(self, company_id, cabang_id, tanggal, tanggal_start):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
         gb = f"""GROUP BY company_id,cabang_id"""
 
         if int(company_id) == 1:
-            where = f"""WHERE payment_last_updated BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE payment_last_updated BETWEEN '{tanggal_start}' AND '{tanggal}'"""
             gb = ""
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         # sql = f"""SELECT
         #             company_id,
@@ -163,7 +164,7 @@ class c_dashboard_utama(object):
 
         return result[0]["nominal_total"]
 
-    async def get_sales_month(self, company_id, cabang_id, tanggal):
+    async def get_sales_month(self, company_id, cabang_id, tanggal, tanggal_start):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
@@ -181,7 +182,7 @@ class c_dashboard_utama(object):
                                 date_part( 'month', date_ ) AS month_,
                                 date_part( 'year', date_ ) AS year_ 
                             FROM
-                                ( SELECT generate_series ( '{tahun}-01-01' :: DATE, '{tanggal}' :: DATE, '1 day' :: INTERVAL ) AS date_ ) AS dates 
+                                ( SELECT generate_series ( '{tanggal_start}' :: DATE, '{tanggal}' :: DATE, '1 day' :: INTERVAL ) AS date_ ) AS dates 
                             ) A 
                         GROUP BY
                             month_,
@@ -204,7 +205,7 @@ class c_dashboard_utama(object):
                                 date_part( 'month', date_ ) AS month_,
                                 date_part( 'year', date_ ) AS year_ 
                             FROM
-                                ( SELECT generate_series ( '{tahun}-01-01' :: DATE, '{tanggal}' :: DATE, '1 day' :: INTERVAL ) AS date_ ) AS dates 
+                                ( SELECT generate_series ( '{tanggal_start}' :: DATE, '{tanggal}' :: DATE, '1 day' :: INTERVAL ) AS date_ ) AS dates 
                             ) A 
                         GROUP BY
                             month_,
@@ -214,28 +215,28 @@ class c_dashboard_utama(object):
                             month_ 
                         )
                         A LEFT JOIN ( 
-                        SELECT SUM
-                            ( aa.amount_total ) AS total,
-                            date_part('month', bb.tanggal) as  MONTH
-                            FROM
+                        SELECT SUM (AA.amount) + sum (aa.amount_pph) + sum(aa.amount_ppn) - sum(bb.biaya_admin) AS total,
+                            date_part('month', aa.tanggal_invoice) as  MONTH,
+                            date_part('year', aa.tanggal_invoice) as year FROM
                             trans_inventory_subsidiary_invoice aa
                             LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
                             {and_filter}
-                            GROUP BY month
-                        ) B ON A.month_ = B.MONTH
+                            GROUP BY month, year
+                        ) B ON A.month_ = B.MONTH AND A.year_ = B.year
                         LEFT JOIN (
                             SELECT 
                             SUM( aa.amount_total) - sum(aa.amount_total_outstanding) as paid_paymnet,
-                            date_part( 'month', payment_last_updated ) AS MONTH 
+                            date_part( 'month', payment_last_updated ) AS MONTH,
+                            date_part( 'year', payment_last_updated ) AS year 
                             FROM
                             trans_inventory_subsidiary_invoice aa
                             LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order 
                             {and_filter}
                             GROUP BY
-                            MONTH
-                        ) C ON A.month_ = C.MONTH
+                            MONTH, year
+                        ) C ON A.month_ = C.MONTH AND A.year_ = C.year
                         """
-        # print(sql_chart_value)
+        print(sql_chart_value)
         try:
             result1 = await self.db.executeToDict(sql_chart_label)
             result_label = [kategori["month_name"] for kategori in result1]
@@ -499,15 +500,15 @@ class c_dashboard_utama(object):
 
         return data
 
-    async def get_biaya_admin(self, tanggal, company_id, cabang_id):
+    async def get_biaya_admin(self, tanggal, company_id, cabang_id, tanggal_start):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tahun}-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         sql = f"""
                     SELECT sum(b.biaya_admin) as total from trans_inventory_subsidiary_invoice a 
@@ -524,21 +525,32 @@ class c_dashboard_utama(object):
 
         return result
 
-    async def read_data_all(self, company_id, cabang_id, tanggal):
+    async def read_data_all(self, company_id, cabang_id, tanggal, tanggal_start):
 
         data = {
-            "inventori": await self.get_inventori(company_id, cabang_id, tanggal),
-            "sales": await self.get_sales(company_id, cabang_id, tanggal),
-            "sales_month": await self.get_sales_month(company_id, cabang_id, tanggal),
-            "outstanding_payment": await self.get_outstanding_payment(
-                company_id, cabang_id, tanggal
+            "inventori": await self.get_inventori(
+                company_id, cabang_id, tanggal, tanggal_start
             ),
-            "paid_payment": await self.get_paid_payment(company_id, cabang_id, tanggal),
+            "sales": await self.get_sales(
+                company_id, cabang_id, tanggal, tanggal_start
+            ),
+            "sales_month": await self.get_sales_month(
+                company_id, cabang_id, tanggal, tanggal_start
+            ),
+            "outstanding_payment": await self.get_outstanding_payment(
+                company_id, cabang_id, tanggal, tanggal_start
+            ),
+            "paid_payment": await self.get_paid_payment(
+                company_id, cabang_id, tanggal, tanggal_start
+            ),
             "outstanding_payment_resume": await self.get_outstanding_payment_resume(
                 tanggal, company_id, cabang_id
             ),
-            "biaya_admin": await self.get_biaya_admin(tanggal, company_id, cabang_id),
+            "biaya_admin": await self.get_biaya_admin(
+                tanggal, company_id, cabang_id, tanggal_start
+            ),
         }
+        print("\n\n\n", data)
 
         return data
 
@@ -551,15 +563,16 @@ class c_dashboard_utama(object):
         company_id,
         cabang_id,
         tanggal=None,
+        tanggal_start=None,
         filter_other="",
         filter_other_conj="",
     ):
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}' and b.status_release = true"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
         if int(company_id) == 1:
-            where = f"WHERE tanggal_invoice <= '{tanggal}'  and b.status_release = true"
+            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}'  and b.status_release = true"""
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
 
         if orderby == None or orderby == "":
             orderby = "company_id, cabang_id, produk_id"
@@ -721,42 +734,6 @@ https://fastapi.tiangolo.com/
 """
 
 
-@app.get("/api/f_dashboard/c_dashboard_utama/get_inventori")
-async def get_inventori(company_id, cabang_id, tanggal):
-    ob_data = c_dashboard_utama()
-    return await ob_data.get_inventori(company_id, cabang_id, tanggal)
-
-
-@app.get("/api/f_dashboard/c_dashboard_utama/get_sales")
-async def get_sales(company_id, cabang_id, tanggal):
-    ob_data = c_dashboard_utama()
-    return await ob_data.get_sales(company_id, cabang_id, tanggal)
-
-
-@app.get("/api/f_dashboard/c_dashboard_utama/get_outstanding_payment")
-async def get_outstanding_payment(company_id, cabang_id, tanggal: str):
-    ob_data = c_dashboard_utama()
-    return await ob_data.get_outstanding_payment(company_id, cabang_id, tanggal)
-
-
-@app.get("/api/f_dashboard/c_dashboard_utama/get_paid_payment")
-async def get_paid_payment(company_id, cabang_id, tanggal: str):
-    ob_data = c_dashboard_utama()
-    return await ob_data.get_paid_payment(company_id, cabang_id, tanggal)
-
-
-@app.get("/api/f_dashboard/c_dashboard_utama/get_sales_month")
-async def get_sales_month(company_id, cabang_id, tanggal: str):
-    ob_data = c_dashboard_utama()
-    return await ob_data.get_sales_month(company_id, cabang_id, tanggal)
-
-
-@app.get("/api/f_dashboard/c_dashboard_utama/get_outstanding_payment_resume")
-async def get_outstanding_payment_resume(tanggal: str):
-    ob_data = c_dashboard_utama()
-    return await ob_data.get_outstanding_payment_resume(tanggal)
-
-
 @app.get("/api/f_dashboard/c_dashboard_utama/read_outstanding_payment_detail")
 async def read_outstanding_payment_detail(
     limit: int = Query(None, alias="$top"),
@@ -785,9 +762,9 @@ async def read_inventori_resume(
 
 
 @app.get("/api/f_dashboard/c_dashboard_utama/read_data_all")
-async def read_data_all(company_id, cabang_id, tanggal: str):
+async def read_data_all(company_id, cabang_id, tanggal: str, tanggal_start: str):
     ob_data = c_dashboard_utama()
-    return await ob_data.read_data_all(company_id, cabang_id, tanggal)
+    return await ob_data.read_data_all(company_id, cabang_id, tanggal, tanggal_start)
 
 
 @app.get("/api/f_dashboard/c_dashboard_utama/read_sales_header")
@@ -797,12 +774,13 @@ async def read_sales_header(
     offset: int = Query(None, alias="$skip"),
     filter: str = Query(None, alias="$filter"),
     tanggal: str = Query(None, alias="tanggal"),
+    tanggal_start: str = Query(None, alias="tanggal_start"),
     company_id: int = Query(None, alias="company_id"),
     cabang_id: int = Query(None, alias="cabang_id"),
 ):
     ob_data = c_dashboard_utama()
     return await ob_data.read_sales_header(
-        orderby, limit, offset, filter, company_id, cabang_id, tanggal
+        orderby, limit, offset, filter, company_id, cabang_id, tanggal, tanggal_start
     )
 
 
@@ -813,10 +791,11 @@ async def read_sales_header_produk(
     offset: int = Query(None, alias="$skip"),
     filter: str = Query(None, alias="$filter"),
     tanggal: str = Query(None, alias="tanggal"),
+    tanggal_start: str = Query(None, alias="tanggal_start"),
     company_id: int = Query(None, alias="company_id"),
     cabang_id: int = Query(None, alias="cabang_id"),
 ):
     ob_data = c_dashboard_utama()
     return await ob_data.read_sales_header_produk(
-        orderby, limit, offset, filter, company_id, cabang_id, tanggal
+        orderby, limit, offset, filter, company_id, cabang_id, tanggal, tanggal_start
     )
