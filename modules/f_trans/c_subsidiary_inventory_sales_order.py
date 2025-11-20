@@ -763,7 +763,7 @@ class c_subsidiary_inventory_sales_order(object):
 
     async def delete(self, data_where):
         sqlHeader = self.db.genDeleteObject(
-            data_where, "trans_inventory_subsidiary_sales_order_haeader"
+            data_where, "trans_inventory_subsidiary_sales_order_header"
         )
 
         sqlDetail = self.db.genDeleteObject(
@@ -777,13 +777,18 @@ class c_subsidiary_inventory_sales_order(object):
 
         try:
             if len(files) > 0:
+                trans = await self.db.executeTrans([sqlHeader, sqlDetail,sqlFile])
+               
+                if trans["status"]== False :
+                    raise HTTPException(400, ("The error is: ", str(trans["detail"])))
+                
                 for file in files:
                     path = (
                         params.loc["file_inventory_sales_order"] + "/" + file["files"]
                     )
                     print(path)
                     os.remove(path)
-                await self.db.executeTrans([sqlHeader, sqlDetail,sqlFile])
+            
             else:
                 await self.db.executeTrans([sqlHeader, sqlDetail,sqlFile])
             message = {"status": "success"}
