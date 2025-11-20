@@ -368,7 +368,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                             aa.no_urut,
                             bb.produk_id,
                             bb.qty,
-                            ROUND((bb.harga_total+bb.transport_cost_total)/bb.qty,0) as harga_satuan,
+                            ROUND((bb.harga_total+bb.transport_cost_total)/bb.qty,2) as harga_satuan,
                             bb.harga_total+bb.transport_cost_total as harga_total
                         FROM trans_inventory_subsidiary_receipt_transfer aa
                         LEFT JOIN trans_inventory_holding_transfer bb
@@ -449,7 +449,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                                         CASE 
                                             WHEN harga_total = 0 or qty = 0
                                             THEN 0 
-                                            ELSE ROUND(harga_total/qty,0)
+                                            ELSE ROUND(harga_total/qty,2)
                                         END as harga_satuan,
                                         harga_total
                                     FROM (
@@ -475,7 +475,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                                         CASE 
                                             WHEN harga_total = 0 or qty = 0
                                             THEN 0 
-                                            ELSE ROUND(harga_total/qty,0)
+                                            ELSE ROUND(harga_total/qty,2)
                                         END as harga_satuan,
                                         harga_total
                                     FROM (
