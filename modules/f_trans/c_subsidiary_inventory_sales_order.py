@@ -150,6 +150,7 @@ class c_subsidiary_inventory_sales_order(object):
                     ) zz """
             + str_clause_count
         )
+        print(sql)
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)

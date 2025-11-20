@@ -216,7 +216,6 @@ class c_subsidiary_inventory_sales_order_release(object):
 
         # return data
 
-    
     async def create_pdf_do(self, id_trans):
 
         sql_header = f"""SELECT
@@ -245,16 +244,11 @@ class c_subsidiary_inventory_sales_order_release(object):
                             LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer 	
                         WHERE
                             aa.id_trans = '{id_trans}'"""
-        
+
         sql_detail = f"""SELECT
                             dd.nama_produk,
                             aa.qty,
-                            ee.uom_satuan,
-                            aa.harga_satuan,
-                            aa.harga_total,
-                            aa.pph_22_value,
-                            aa.ppn_value,
-                            aa.harga_total_ppn_pph 
+                            ee.uom_satuan
                         FROM
                             trans_inventory_subsidiary_sales_order aa
                             LEFT JOIN master_company bb ON aa.company_id = bb.id_company
@@ -271,7 +265,7 @@ class c_subsidiary_inventory_sales_order_release(object):
 
         data_header = result_header[0]
         data_detail = result_detail
-        pdf = PDF(data_header, data_detail)
+        pdf = PDF_DO(data_header, data_detail)
 
         pdf_buffer = pdf.generate_report()
         filenamex = data_header["id_trans"]
@@ -282,9 +276,6 @@ class c_subsidiary_inventory_sales_order_release(object):
             headers={"Content-Disposition": f"inline; filename={filenamex}.pdf"},
         )
 
-
-
-    
     async def create_pdf_do_old(self, id_trans):
         sql = f"""SELECT
                     aa.id_trans,
@@ -601,7 +592,10 @@ class c_subsidiary_inventory_sales_order_release(object):
                 company_id,
                 cabang_id, 
                 qty_in - qty_out as qty,
-                ROUND((ht_in - ht_out) / (qty_in - qty_out), 0) as harga_satuan,
+                CASE 
+                  WHEN (qty_in - qty_out) = 0 THEN 0
+                  ELSE ROUND((ht_in - ht_out) / (qty_in - qty_out), 2)
+                 END as harga_satuan,
                 ht_in - ht_out as harga_total,
                 '{datetime.today()}', '{auth.AuthAction.get_data_params("username")}'
                 FROM (
