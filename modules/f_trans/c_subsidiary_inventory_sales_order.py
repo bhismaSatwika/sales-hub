@@ -103,8 +103,9 @@ class c_subsidiary_inventory_sales_order(object):
                         LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                         LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
                         LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
-                    )zz""" + str_clause
-                    )
+                    )zz"""
+            + str_clause
+        )
 
         sql_count = (
             f"""SELECT count(*) count FROM (
@@ -155,18 +156,31 @@ class c_subsidiary_inventory_sales_order(object):
 
         data = {"data": result, "count": result_count[0]["count"]}
         return data
-    
 
-    async def read_produk(self,orderby,limit,offset,filter,id_trans=None,filter_other="",filter_other_conj=""):
-        
+    async def read_produk(
+        self,
+        orderby,
+        limit,
+        offset,
+        filter,
+        id_trans=None,
+        filter_other="",
+        filter_other_conj="",
+    ):
+
         filter_other = f"zz.id_trans = '{id_trans}'"
         filter_other_conj = f" and "
         orderby = "zz.updateindb ASC"
 
-        str_clause = self.kendoParse().parse_query(orderby, limit, offset, filter, filter_other, filter_other_conj)
-        str_clause_count = self.kendoParse().parse_query("", None, None, filter, filter_other, filter_other_conj)
+        str_clause = self.kendoParse().parse_query(
+            orderby, limit, offset, filter, filter_other, filter_other_conj
+        )
+        str_clause_count = self.kendoParse().parse_query(
+            "", None, None, filter, filter_other, filter_other_conj
+        )
 
-        sql = (f"""SELECT
+        sql = (
+            f"""SELECT
                         * 
                     FROM
                         (
@@ -205,9 +219,12 @@ class c_subsidiary_inventory_sales_order(object):
                             LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
                             LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
                             LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
-                        ) zz """ + str_clause)
+                        ) zz """
+            + str_clause
+        )
 
-        sql_count = (f"""SELECT
+        sql_count = (
+            f"""SELECT
                                 count(*) count
                             FROM
                                 (
@@ -246,14 +263,15 @@ class c_subsidiary_inventory_sales_order(object):
                                     LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
                                     LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
                                     LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
-                                ) zz """+ str_clause_count)
+                                ) zz """
+            + str_clause_count
+        )
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
 
         data = {"data": result, "count": result_count[0]["count"]}
         return data
-    
 
     async def get_id_trans_kode(self, company_id, cabang_id, kode_trans, tahun, bulan):
         # bulan = datetime.now().month
@@ -379,8 +397,10 @@ class c_subsidiary_inventory_sales_order(object):
         }
 
         return data_kode
-    
-    async def create(self, data, files: List[UploadFile], listFilename: List[str],product):
+
+    async def create(
+        self, data, files: List[UploadFile], listFilename: List[str], product
+    ):
         tanggal = datetime.strptime(data["tanggal"], "%Y-%m-%d")
         tahun = tanggal.year
         bulan = tanggal.month
@@ -388,7 +408,7 @@ class c_subsidiary_inventory_sales_order(object):
         data_kode = await self.get_id_trans_kode(
             data["company_id"], data["cabang_id"], "SO", tahun, bulan
         )
-        
+
         # print(data)
         # print("\n\n")
         # print(products)
@@ -427,25 +447,31 @@ class c_subsidiary_inventory_sales_order(object):
             data, "trans_inventory_subsidiary_sales_order_header"
         )
 
-
         try:
-            products=[{**json.loads(p),
-                        'id_trans':data_kode["id_trans"],
-                        'company_id':data["company_id"],
-                        'cabang_id':data["cabang_id"],
-                        'userupdate': auth.AuthAction.get_data_params("username")} for p in product]
-            
+            products = [
+                {
+                    **json.loads(p),
+                    "id_trans": data_kode["id_trans"],
+                    "company_id": data["company_id"],
+                    "cabang_id": data["cabang_id"],
+                    "userupdate": auth.AuthAction.get_data_params("username"),
+                }
+                for p in product
+            ]
+
             # print(products)
             # print("\n\n")
-            
-            sqlDetail = self.db.genStrInsertArrayObject(products,"trans_inventory_subsidiary_sales_order")
-            
+
+            sqlDetail = self.db.genStrInsertArrayObject(
+                products, "trans_inventory_subsidiary_sales_order"
+            )
+
             # print(sqlHeader)
             # print(sqlDetail)
-            
-            trans = await self.db.executeTrans([sqlHeader,sqlDetail])
 
-            if trans["status"]== False :
+            trans = await self.db.executeTrans([sqlHeader, sqlDetail])
+
+            if trans["status"] == False:
                 raise HTTPException(400, ("The error is: ", str(e)))
 
             if len(files) > 0:
@@ -460,7 +486,6 @@ class c_subsidiary_inventory_sales_order(object):
         except Exception as e:
             print(e)
             raise HTTPException(400, ("The error is: ", str(e)))
-
 
     async def create_old(self, data, files: List[UploadFile], listFilename: List[str]):
 
@@ -534,9 +559,8 @@ class c_subsidiary_inventory_sales_order(object):
             return "success"
         except Exception as e:
             raise HTTPException(400, ("The error is: ", str(e)))
-        
 
-    async def update_produk(self,data):
+    async def update_produk(self, data):
         # print("\n\n")
         # print(data["product"])
         # print("\n\n")
@@ -548,31 +572,39 @@ class c_subsidiary_inventory_sales_order(object):
         produk_update_data = data["product"]["update_data"]
         header_update_data = data["header"]["update_data"]
 
-        sqlProduk = self.db.genUpdateObject(produk_update_data,produk_update_where,"trans_inventory_subsidiary_sales_order")
+        sqlProduk = self.db.genUpdateObject(
+            produk_update_data,
+            produk_update_where,
+            "trans_inventory_subsidiary_sales_order",
+        )
 
-        sqlHeader = self.db.genUpdateObject(header_update_data,header_update_where,"trans_inventory_subsidiary_sales_order_header")
+        sqlHeader = self.db.genUpdateObject(
+            header_update_data,
+            header_update_where,
+            "trans_inventory_subsidiary_sales_order_header",
+        )
 
         # print("\n\n")
         # print(sqlProduk)
         # print("\n\n")
         # print(sqlHeader)
-        # print("\n\n")  
+        # print("\n\n")
 
-        
         try:
-          
-            trans = await self.db.executeTrans([sqlProduk,sqlHeader])
-            if trans["status"]== False :
+
+            trans = await self.db.executeTrans([sqlProduk, sqlHeader])
+            if trans["status"] == False:
                 raise HTTPException(400, ("The error is: ", trans["detail"]))
 
             return "success"
-        
+
         except Exception as e:
             print(e)
             raise HTTPException(400, ("The error is: ", str(e)))
-        
-        
-    async def update(self, data, files: List[UploadFile], listFilename: List[str],product:List[str]):
+
+    async def update(
+        self, data, files: List[UploadFile], listFilename: List[str], product: List[str]
+    ):
         data.update(
             {
                 "userupdate": auth.AuthAction.get_data_params("username"),
@@ -611,43 +643,49 @@ class c_subsidiary_inventory_sales_order(object):
                     f"""INSERT INTO files_upload (id_trans, file_name, files)
                 VALUES('{data["id_trans"]}', '{listFilename[i]}', '{filename}');"""
                 )
-        
+
         products = []
 
         queries = []
 
         try:
-            
+
             # print("daerah 2")
             # print("\n\n")
             # print(products)
             # print("\n\n")
 
-            if len(product) != 0 :
+            if len(product) != 0:
 
-                products=[{**json.loads(p),
-                            'id_trans':data["id_trans"],
-                            'company_id':data["company_id"],
-                            'cabang_id':data["cabang_id"],
-                            'userupdate': auth.AuthAction.get_data_params("username")} for p in product]
+                products = [
+                    {
+                        **json.loads(p),
+                        "id_trans": data["id_trans"],
+                        "company_id": data["company_id"],
+                        "cabang_id": data["cabang_id"],
+                        "userupdate": auth.AuthAction.get_data_params("username"),
+                    }
+                    for p in product
+                ]
 
                 # print("daerah 3")
                 # print("\n\n")
                 # print(products)
                 # print("\n\n")
 
-                sqlProduct = self.db.genStrInsertArrayObject(products,"trans_inventory_subsidiary_sales_order")
+                sqlProduct = self.db.genStrInsertArrayObject(
+                    products, "trans_inventory_subsidiary_sales_order"
+                )
                 print(sqlProduct)
-                
+
                 queries.append(str(sqlProduct))
-                
+
                 # print("\n\n")
                 # print(queries)
                 # print("\n\n")
-            
+
             queries.append(str(sqlDetail))
-            
-            
+
             trans = await self.db.executeTrans(queries)
 
             # print("daerah 4")
@@ -655,8 +693,7 @@ class c_subsidiary_inventory_sales_order(object):
             # print(trans)
             # print("\n\n")
 
-
-            if trans["status"]== False :
+            if trans["status"] == False:
                 raise HTTPException(400, ("The error is: ", str(e)))
 
             if len(files) > 0:
@@ -672,7 +709,6 @@ class c_subsidiary_inventory_sales_order(object):
         except Exception as e:
             print(e)
             raise HTTPException(400, ("The error is: ", str(e)))
-
 
     async def update_old(self, data, files: List[UploadFile], listFilename: List[str]):
 
@@ -727,18 +763,20 @@ class c_subsidiary_inventory_sales_order(object):
         except Exception as e:
             raise HTTPException(400, ("The error is: ", str(e)))
 
-    
     async def delete_produk(self, data):
         produk_delete_where = data["product"]["update_where"]
         header_update_where = data["header"]["update_where"]
         header_update_data = data["header"]["update_data"]
 
-
         sqlProduk = self.db.genDeleteObject(
             produk_delete_where, "trans_inventory_subsidiary_sales_order"
         )
 
-        sqlHeader = self.db.genUpdateObject(header_update_data,header_update_where,"trans_inventory_subsidiary_sales_order_header")
+        sqlHeader = self.db.genUpdateObject(
+            header_update_data,
+            header_update_where,
+            "trans_inventory_subsidiary_sales_order_header",
+        )
 
         print("\n\n")
         print(sqlProduk)
@@ -747,9 +785,9 @@ class c_subsidiary_inventory_sales_order(object):
         print("\n\n")
 
         try:
-            trans = await self.db.executeTrans([sqlProduk,sqlHeader])
+            trans = await self.db.executeTrans([sqlProduk, sqlHeader])
 
-            if trans["status"]== False :
+            if trans["status"] == False:
                 raise HTTPException(400, ("The error is: ", str(e)))
 
             message = {"status": "success"}
@@ -758,8 +796,6 @@ class c_subsidiary_inventory_sales_order(object):
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
-
-    
 
     async def delete(self, data_where):
         sqlHeader = self.db.genDeleteObject(
@@ -777,27 +813,26 @@ class c_subsidiary_inventory_sales_order(object):
 
         try:
             if len(files) > 0:
-                trans = await self.db.executeTrans([sqlHeader, sqlDetail,sqlFile])
-               
-                if trans["status"]== False :
+                trans = await self.db.executeTrans([sqlHeader, sqlDetail, sqlFile])
+
+                if trans["status"] == False:
                     raise HTTPException(400, ("The error is: ", str(trans["detail"])))
-                
+
                 for file in files:
                     path = (
                         params.loc["file_inventory_sales_order"] + "/" + file["files"]
                     )
                     print(path)
                     os.remove(path)
-            
+
             else:
-                await self.db.executeTrans([sqlHeader, sqlDetail,sqlFile])
+                await self.db.executeTrans([sqlHeader, sqlDetail, sqlFile])
             message = {"status": "success"}
         except Exception as e:
             print(e)
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
-
 
     async def delete_old(self, data_where):
         sqlString = self.db.genDeleteObject(
@@ -1175,7 +1210,6 @@ class c_subsidiary_inventory_sales_order(object):
             raise HTTPException(400, str(e))
         return message
 
-
     async def create_pdf_so(self, id_trans):
         sql_header = f"""SELECT
                             aa.id,
@@ -1199,69 +1233,64 @@ class c_subsidiary_inventory_sales_order(object):
                             aa.harga_total,
                             bb.company_name,
                             cc.cabang_name,
-                            dd.name as salesman_name,
+                            dd.name as nama_sales,
                             ee.pembayaran,
                             ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
-                            ff.id_trans as id_invoice,
-                            ff.tanggal_invoice
+                            ff.id_trans as no_invoice,
+                            ff.tanggal_invoice,
+                            gg.nama_customer,
+                            gg.alamat,
+                            gg.account_va,
+                            gg.no_hp,
+                            ff.tanggal_due_date,
+                            ff.amount_total_outstanding as ato,
+                            gg.account_bank_name,
+                            ff.md5_file,
+                            CASE WHEN ff.complete_payment = TRUE THEN 'Lunas' ELSE 'Belum Lunas' END as complete_payment
                         FROM trans_inventory_subsidiary_sales_order_header aa
                         LEFT JOIN master_company bb ON aa.company_id = bb.id_company
                         LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
                         LEFT JOIN master_user dd ON aa.salesman = dd.id_user
                         LEFT JOIN master_jenis_pembayaran ee ON aa.id_pembayaran = ee.id_pembayaran
                         LEFT JOIN trans_inventory_subsidiary_invoice ff ON aa.id_trans = ff.id_trans_sales_order
-                        WHERE aa.id_trans = '{id_trans}'"""
-        
+                        LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                        WHERE ff.md5_file = '{id_trans}'"""
+
+        print(sql_header)
+
         sql_detail = f"""SELECT
-                            aa.id_trans,
-                            aa.produk_id,
-                            aa.company_id,
-                            aa.cabang_id,
+                            dd.nama_produk,
                             aa.qty,
+                            ee.uom_satuan,
                             aa.harga_satuan,
                             aa.harga_total,
-                            aa.updateindb,
-                            aa.userupdate,
-                            aa.status_release,
-                            aa.tanggal,
-                            aa.id_produk_harga_jual,
-                            aa.ppn_percent,
-                            aa.ppn_value,
-                            aa.pph_22_percent,
                             aa.pph_22_value,
-                            aa.harga_total_ppn_pph,
-                            aa.no_urut,
-                            aa.id_increment,	
-                            aa.harga_satuan_hpp,
-                            aa.harga_total_hpp,
-                            bb.company_name,
-                            cc.cabang_name,
-                            dd.nama_produk,
-                            ff.id_trans as id_invoice,
-                            ff.tanggal_invoice
+                            aa.ppn_value,
+                            aa.harga_total_ppn_pph
                     FROM trans_inventory_subsidiary_sales_order aa
                     LEFT JOIN master_company bb ON aa.company_id = bb.id_company
                     LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
                     LEFT JOIN master_produk dd ON aa.produk_id = dd.id_produk
                     LEFT JOIN master_produk_uom_satuan ee ON dd.uom_satuan = ee.id_uom_satuan
                     LEFT JOIN trans_inventory_subsidiary_invoice ff ON aa.id_trans = ff.id_trans_sales_order
-                    WHERE aa.id_trans = '{id_trans}'"""
-        
+                    WHERE ff.md5_file = '{id_trans}'"""
 
         # result = await self.db.executeTrans([sql_header,sql_detail])
+        result_header = await self.db.executeToDict(sql_header)
+        result_detail = await self.db.executeToDict(sql_detail)
 
-        # data = result[0]
-        # pdf = PDF(data)
-        # print(data)
-        # pdf_buffer = pdf.generate_report()
-        # filenamex = data["id_trans"]
+        data_header = result_header[0]
+        data_detail = result_detail
+        pdf = PDF(data_header, data_detail)
 
-        # return StreamingResponse(
-        #     pdf_buffer,
-        #     media_type="application/pdf",
-        #     headers={"Content-Disposition": f"inline; filename={filenamex}.pdf"},
-        # )
+        pdf_buffer = pdf.generate_report()
+        filenamex = data_header["id_trans"]
 
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename={filenamex}.pdf"},
+        )
 
     async def create_pdf_so_old(self, md5_file):
         sql = f"""SELECT
@@ -1599,6 +1628,7 @@ async def read(
     ob_data = c_subsidiary_inventory_sales_order()
     return await ob_data.read(orderby, limit, offset, filter, company_id, cabang_id)
 
+
 @app.get("/api/f_trans/c_subsidiary_inventory_sales_order/read_produk")
 async def read_produk(
     limit: int = Query(None, alias="$top"),
@@ -1643,7 +1673,6 @@ async def create(
         "harga_total_hpp": harga_total_hpp,
         "harga_total": harga_total,
     }
-    
 
     # print(data)
     # print("\n\n")
@@ -1653,7 +1682,7 @@ async def create(
     # print("\n\n")
 
     ob_data = c_subsidiary_inventory_sales_order()
-    return await ob_data.create(data, files, filename,product)
+    return await ob_data.create(data, files, filename, product)
 
 
 # @app.post("/api/f_trans/c_subsidiary_inventory_sales_order/create")
@@ -1699,13 +1728,11 @@ async def create(
 #     return await ob_data.create(data, files, filename)
 
 
-
 @app.post("/api/f_trans/c_subsidiary_inventory_sales_order/update_produk")
-async def update_produk(request:Request):
+async def update_produk(request: Request):
     data = await request.json()
     ob_data = c_subsidiary_inventory_sales_order()
     return await ob_data.update_produk(data)
-
 
 
 @app.post("/api/f_trans/c_subsidiary_inventory_sales_order/update")
@@ -1743,7 +1770,7 @@ async def update(
         "harga_total": harga_total,
     }
     ob_data = c_subsidiary_inventory_sales_order()
-    return await ob_data.update(data, files, filename,product)
+    return await ob_data.update(data, files, filename, product)
 
 
 @app.get("/api/f_trans/c_subsidiary_inventory_sales_order/read_files")

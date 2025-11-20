@@ -278,7 +278,9 @@ class c_subsidiary_inventory_sales_order_release(object):
             }
 
         ## validasi stok inventory dan jumlah quantity yang akan dirilis
-        await self.validasi_quantity(data["company_id"],data["cabang_id"],data["id_trans"])
+        await self.validasi_quantity(
+            data["company_id"], data["cabang_id"], data["id_trans"]
+        )
 
         ## validasi payment
         await self.validasi_paid_payment(data)
@@ -336,7 +338,7 @@ class c_subsidiary_inventory_sales_order_release(object):
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    async def validasi_quantity(self, company_id,cabang_id,id_trans):
+    async def validasi_quantity(self, company_id, cabang_id, id_trans):
         sql_validate = f"""SELECT aa.company_id,aa.cabang_id,aa.produk_id,bb.nama_produk,SUM(aa.qty) as qty_inventory,SUM(cc.qty) as qty_sales
                                         FROM trans_inventory_detail aa
                                         LEFT JOIN master_produk bb
@@ -366,7 +368,7 @@ class c_subsidiary_inventory_sales_order_release(object):
             # print(result)
 
             if len(result) > 0:
-                string = ''
+                string = ""
                 for res in result:
                     string = f"""Produk {res['nama_produk']} memiliki sisa stok :{res['qty_inventory']}, """
                     message = message + string
@@ -374,12 +376,10 @@ class c_subsidiary_inventory_sales_order_release(object):
                 raise HTTPException(
                     status_code=400,
                     detail=string,
-            )
+                )
 
         except Exception as e:
-            message = (
-                "Error ketika melakukan validasi stok: " + message + str(e)
-            )
+            message = "Error ketika melakukan validasi stok: " + message + str(e)
             raise HTTPException(
                 status_code=400,
                 detail=message,
@@ -454,7 +454,6 @@ class c_subsidiary_inventory_sales_order_release(object):
             )"""
 
         return sql_insert_mutasi
-
 
     async def select_mutasi(self, data):
         sql_detail_mutasi = f"""SELECT produk_id,
@@ -636,6 +635,7 @@ class c_subsidiary_inventory_sales_order_release(object):
             "amount": self.sales_order["harga_total"],
             "amount_ppn": self.sales_order["total_ppn"],
             "amount_pph": self.sales_order["total_pph"],
+            "md5_file": id_trans_md5,
             "amount_total": self.sales_order["harga_total_ppn_pph"],
             "amount_total_outstanding": self.sales_order["harga_total_ppn_pph"],
             "customer_id": self.sales_order["customer_id"],
