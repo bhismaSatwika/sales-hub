@@ -1175,7 +1175,95 @@ class c_subsidiary_inventory_sales_order(object):
             raise HTTPException(400, str(e))
         return message
 
-    async def create_pdf_so(self, md5_file):
+
+    async def create_pdf_so(self, id_trans):
+        sql_header = f"""SELECT
+                            aa.id,
+                            aa.id_trans,
+                            aa.no_urut,
+                            aa.company_id,
+                            aa.cabang_id,
+                            aa.salesman,
+                            aa.tanggal,
+                            aa.customer_id,
+                            aa.id_pembayaran,
+                            aa.total_ppn,
+                            aa.total_pph,
+                            aa.harga_total_hpp,
+                            aa.biaya_admin,
+                            aa.harga_total_ppn_pph,
+                            aa.flag_sales_report,
+                            aa.status_release,
+                            aa.userupdate,
+                            aa.updateindb,
+                            aa.harga_total,
+                            bb.company_name,
+                            cc.cabang_name,
+                            dd.name as salesman_name,
+                            ee.pembayaran,
+                            ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
+                            ff.id_trans as id_invoice,
+                            ff.tanggal_invoice
+                        FROM trans_inventory_subsidiary_sales_order_header aa
+                        LEFT JOIN master_company bb ON aa.company_id = bb.id_company
+                        LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
+                        LEFT JOIN master_user dd ON aa.salesman = dd.id_user
+                        LEFT JOIN master_jenis_pembayaran ee ON aa.id_pembayaran = ee.id_pembayaran
+                        LEFT JOIN trans_inventory_subsidiary_invoice ff ON aa.id_trans = ff.id_trans_sales_order
+                        WHERE aa.id_trans = '{id_trans}'"""
+        
+        sql_detail = f"""SELECT
+                            aa.id_trans,
+                            aa.produk_id,
+                            aa.company_id,
+                            aa.cabang_id,
+                            aa.qty,
+                            aa.harga_satuan,
+                            aa.harga_total,
+                            aa.updateindb,
+                            aa.userupdate,
+                            aa.status_release,
+                            aa.tanggal,
+                            aa.id_produk_harga_jual,
+                            aa.ppn_percent,
+                            aa.ppn_value,
+                            aa.pph_22_percent,
+                            aa.pph_22_value,
+                            aa.harga_total_ppn_pph,
+                            aa.no_urut,
+                            aa.id_increment,	
+                            aa.harga_satuan_hpp,
+                            aa.harga_total_hpp,
+                            bb.company_name,
+                            cc.cabang_name,
+                            dd.nama_produk,
+                            ff.id_trans as id_invoice,
+                            ff.tanggal_invoice
+                    FROM trans_inventory_subsidiary_sales_order aa
+                    LEFT JOIN master_company bb ON aa.company_id = bb.id_company
+                    LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
+                    LEFT JOIN master_produk dd ON aa.produk_id = dd.id_produk
+                    LEFT JOIN master_produk_uom_satuan ee ON dd.uom_satuan = ee.id_uom_satuan
+                    LEFT JOIN trans_inventory_subsidiary_invoice ff ON aa.id_trans = ff.id_trans_sales_order
+                    WHERE aa.id_trans = '{id_trans}'"""
+        
+
+        # result = await self.db.executeTrans([sql_header,sql_detail])
+
+        # data = result[0]
+        # pdf = PDF(data)
+        # print(data)
+        # pdf_buffer = pdf.generate_report()
+        # filenamex = data["id_trans"]
+
+        # return StreamingResponse(
+        #     pdf_buffer,
+        #     media_type="application/pdf",
+        #     headers={"Content-Disposition": f"inline; filename={filenamex}.pdf"},
+        # )
+
+
+    async def create_pdf_so_old(self, md5_file):
         sql = f"""SELECT
                     aa.id_trans,
                     bb.id_produk AS produk_id,
