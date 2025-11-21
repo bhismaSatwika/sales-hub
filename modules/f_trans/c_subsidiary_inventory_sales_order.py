@@ -38,17 +38,17 @@ class c_subsidiary_inventory_sales_order(object):
     ):
 
         if company_id != None and cabang_id != None:
-            filter_other = (
-                f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
-            )
+            filter_other = f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}' AND order_type ='direct'"
             filter_other_conj = f" and "
 
             if company_id == 1:
-                filter_other = f""
-                filter_other_conj = f""
+                filter_other = f"order_type ='direct'"
+                filter_other_conj = f"AND"
 
             if company_id == 2 and cabang_id == 11:
-                filter_other = f" zz.company_id = '{company_id}'"
+                filter_other = (
+                    f" zz.company_id = '{company_id}' AND order_type ='direct'"
+                )
 
         else:
             filter_other = f""
@@ -67,6 +67,7 @@ class c_subsidiary_inventory_sales_order(object):
             f"""SELECT * FROM (
                     SELECT
                         aa.id,
+                        aa.order_type,
                         aa.id_trans,
                         aa.no_urut,
                         aa.company_id,
@@ -111,6 +112,7 @@ class c_subsidiary_inventory_sales_order(object):
             f"""SELECT count(*) count FROM (
                     SELECT
                         aa.id,
+                        aa.order_type,
                         aa.id_trans,
                         aa.no_urut,
                         aa.company_id,
