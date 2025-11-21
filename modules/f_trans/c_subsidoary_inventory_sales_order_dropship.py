@@ -159,7 +159,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         data = {"data": result, "count": result_count[0]["count"]}
         return data
-    
+
     async def read_produk(
         self,
         orderby,
@@ -275,7 +275,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         data = {"data": result, "count": result_count[0]["count"]}
         return data
-    
+
     async def get_id_trans_kode(self, company_id, cabang_id, kode_trans, tahun, bulan):
         # bulan = datetime.now().month
         # tahun = datetime.now().year
@@ -398,7 +398,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         }
 
         return data_kode
-    
+
     async def create(
         self, data, files: List[UploadFile], listFilename: List[str], product
     ):
@@ -603,7 +603,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         except Exception as e:
             print(e)
             raise HTTPException(400, ("The error is: ", str(e)))
-        
+
     async def delete_produk(self, data):
         produk_delete_where = data["product"]["update_where"]
         header_update_where = data["header"]["update_where"]
@@ -631,7 +631,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
-    
+
     async def delete(self, data_where):
         sqlHeader = self.db.genDeleteObject(
             data_where, "trans_inventory_subsidiary_sales_order_header"
@@ -668,7 +668,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             message = {"status": "error"}
             raise HTTPException(status_code=400, detail=str(e))
         return message
-        
+
     async def read_files(self, id_trans):
         sql = f""" SELECT file_name, files FROM files_upload where id_trans = '{id_trans}' """
 
@@ -685,7 +685,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         mime_type, _ = mimetypes.guess_type(file_path)
         # If the MIME type cannot be guessed, fallback to 'application/octet-stream'
         return mime_type if mime_type else "application/octet-stream"
-    
+
     async def stream_file(self, path, filename):
         try:
             content_type = self.get_content_type(path)
@@ -774,7 +774,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             media_type="application/pdf",
             headers={"Content-Disposition": f"inline; filename={filenamex}.pdf"},
         )
-    
+
     async def create_pdf_do(self, id_trans):
         sql = f"""SELECT
                     aa.id_trans,
@@ -1001,7 +1001,11 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         return wb
 
-    async def request_approve(self, data):  
+    async def request_approve(self, data):
+
+        await self.validasi_quantity(
+            data["company_id"], data["cabang_id"], data["id_trans"]
+        )
 
         queries = []
         if data["status_release"] == True:
@@ -1013,13 +1017,13 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             queries.append(sql_update)
 
         else:
-            sql_update_status_release = f"""UPDATE trans_inventory_subsidiary_sales_order_header SET status_release = 'TRUE'
+            sql_update_status_release = f"""UPDATE trans_inventory_subsidiary_sales_order_header SET status_release = 'TRUE', approval_status = 1
         WHERE id_trans = '{data["id_trans"]}'"""
             queries.append(sql_update_status_release)
 
         now = datetime.now()
-        id = int(now.timestamp()*1000)
-        approval_trans = "DROPSHP.APPR."+str(id)
+        id = int(now.timestamp() * 1000)
+        approval_trans = "DROPSHP.APPR." + str(id)
 
         # insert ke tabel detail_approval
         sql_detail_approval = f"""INSERT INTO trans_approval_detail (header_id,master_approval_id,order_approve,approval_status,approval_type,approval_trans) 
@@ -1038,10 +1042,6 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         WHERE approval_company_id = {data["company_id"]} AND approval_cabang_id = {data["cabang_id"]}"""
         queries.append(sql_detail_approval)
 
-        # sql_insert_detail_approval = self.db.genStrInsertSingleObject(
-        #     sql_detail_approval, "trans_inventory_subsidiary_retur_detail"
-        # )
-
         try:
             trans = await self.db.executeTrans(queries)
             if trans["status"] == False:
@@ -1052,7 +1052,54 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         except Exception as e:
             print(e)
             raise HTTPException(400, ("The error is: ", str(e)))
-        
+
+    async def validasi_quantity(self, company_id, cabang_id, id_trans):
+        sql_validate = f"""SELECT aa.company_id,aa.cabang_id,aa.produk_id,bb.nama_produk,SUM(aa.qty) as qty_inventory,SUM(cc.qty) as qty_sales
+                                        FROM trans_inventory_detail aa
+                                        LEFT JOIN master_produk bb
+                                        ON aa.produk_id = bb.id_produk
+                                        LEFT JOIN (
+                                        SELECT company_id,produk_id,cabang_id,qty
+                                                FROM trans_inventory_subsidiary_sales_order 
+                                                WHERE id_trans = '{id_trans}'
+                                        ) cc ON aa.produk_id = cc.produk_id AND aa.company_id = cc.company_id AND aa.cabang_id = cc.cabang_id
+                                        WHERE aa.company_id = {company_id} AND aa.cabang_id = {cabang_id} 
+                                        AND aa.produk_id IN(
+                                                SELECT produk_id
+                                                FROM trans_inventory_subsidiary_sales_order 
+                                                WHERE id_trans = '{id_trans}'
+                                        )
+                                        GROUP BY aa.company_id,aa.cabang_id,aa.produk_id,bb.nama_produk
+                                        HAVING SUM(cc.qty) > SUM(aa.qty)"""
+
+        # print("\n\n\n")
+        # print(sql_validate)
+
+        message = ""
+
+        try:
+            result = await self.db.executeToDict(sql_validate)
+            # print("\n\n\n")
+            # print(result)
+
+            if len(result) > 0:
+                string = ""
+                for res in result:
+                    string = f"""Produk {res['nama_produk']} memiliki sisa stok :{res['qty_inventory']}, """
+                    message = message + string
+                print(string)
+                raise HTTPException(
+                    status_code=400,
+                    detail=string,
+                )
+
+        except Exception as e:
+            message = "Error ketika melakukan validasi stok: " + message + str(e)
+            raise HTTPException(
+                status_code=400,
+                detail=message,
+            )
+
 
 """
 list your path url at bottom
@@ -1062,6 +1109,7 @@ url/api/c_subsidiary_inventory_sales_order_dropship/testing
 for post method and other method, check tutorial from 
 https://fastapi.tiangolo.com/
 """
+
 
 @app.get("/api/f_trans/c_subsidiary_inventory_sales_order_dropship/read")
 async def read(
@@ -1103,6 +1151,7 @@ async def get_id_trans_kode_release(company_id, cabang_id, kode_trans, tahun, bu
         company_id, cabang_id, kode_trans, tahun, bulan
     )
 
+
 @app.post("/api/f_trans/c_subsidiary_inventory_sales_order_dropship/create")
 async def create(
     company_id: int = Form(...),
@@ -1120,6 +1169,7 @@ async def create(
     product: List[str] = Form(...),
     harga_total_hpp: float = Form(...),
     harga_total: float = Form(...),
+    order_type: str = Form(...),
 ):
     data = {
         "company_id": company_id,
@@ -1134,6 +1184,7 @@ async def create(
         "biaya_admin": biaya_admin,
         "harga_total_hpp": harga_total_hpp,
         "harga_total": harga_total,
+        "order_type": order_type,
     }
 
     ob_data = c_subsidiary_inventory_sales_order_dropship()
@@ -1312,6 +1363,7 @@ async def get_invoice_so(
     return await ob_data.export_sales_order(
         tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
     )
+
 
 @app.post("/api/f_trans/c_subsidiary_inventory_sales_order_dropship/request_approve")
 async def request_approve(request: Request):
