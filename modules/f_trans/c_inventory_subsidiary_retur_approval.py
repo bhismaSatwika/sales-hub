@@ -47,37 +47,48 @@ class c_inventory_subsidiary_retur_approval(object):
         sql = (
             f"""SELECT * FROM (
                     SELECT
-                        bb.detail_id,
-                        bb.order_approve,
-                        cc.username,
-                        aa.id_trans AS id_header,
-                        aa.approval_status AS id_approval_status_header,
-                        ee.status_name AS approval_status_header,
-                        bb.approval_status AS id_approval_status_detail,
-                        ff.status_name AS approval_status_detail,
-                        dd.id_invoice,
-                        dd.status_release,
-                        dd.tanggal_retur,
-                        dd.company_id AS company_id,
-                        hh.company_name,
-                        dd.cabang_id AS cabang_id,
-                        gg.id_trans_sales_order,
-                        ii.cabang_name,
-                        gg.customer_id,
-                        jj.nama_customer,
+                        aa.ID,
+                        aa.order_type,
+                        aa.id_trans,
+                        aa.no_urut,
+                        aa.company_id,
+                        aa.cabang_id,
+                        aa.salesman,
+                        aa.tanggal,
+                        aa.customer_id,
+                        aa.id_pembayaran,
+                        aa.total_ppn,
+                        aa.total_pph,
+                        aa.harga_total_hpp,
+                        aa.biaya_admin,
+                        aa.harga_total_ppn_pph,
+                        aa.flag_sales_report,
+                        aa.status_release,
+                        aa.userupdate,
                         aa.updateindb,
-                        bb.active 
+                        ee.company_name,
+                        aa.harga_total,
+                        ff.cabang_name,
+                        ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
+                        gg.nama_customer,
+                        gg.account_va,
+                        gg.account_bank_name,
+                        hh.md5_file,
+                        ii.pembayaran,
+                        jj.username AS nik,
+                        jj.NAME AS nama_sales,
+                        ll.username
                     FROM
                         trans_inventory_subsidiary_sales_order_header aa
-                        LEFT JOIN trans_approval_detail bb ON aa.id_trans = bb.header_id
-                        LEFT JOIN master_approval cc ON bb.master_approval_id = cc.ID 
-                        LEFT JOIN trans_inventory_subsidiary_retur_header dd ON aa.id_trans = dd.id_header
-                        LEFT JOIN master_approval_status ee ON aa.approval_status = ee.id_status
-                        LEFT JOIN master_approval_status ff ON bb.approval_status = ff.id_status
-                        LEFT JOIN trans_inventory_subsidiary_invoice gg ON dd.id_invoice = gg.id_trans
-                        LEFT JOIN master_company hh ON dd.company_id = hh.id_company
-                        LEFT JOIN master_company_cabang ii ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
-                        LEFT JOIN master_customer jj ON gg.customer_id = jj.id_customer
+                        LEFT JOIN master_company ee ON aa.company_id = ee.id_company
+                        LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
+                        AND aa.company_id = ff.id_company
+                        LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                        LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
+                        LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
+                        LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
+                        LEFT JOIN trans_approval_detail kk ON aa.id_trans = kk.header_id
+                        LEFT JOIN master_approval ll ON kk.master_approval_id = ll.ID
             ) zz """
             + str_clause
         )
@@ -85,37 +96,48 @@ class c_inventory_subsidiary_retur_approval(object):
         sql_count = (
             f"""SELECT COUNT(*) as count FROM (
                     SELECT
-                        bb.detail_id,
-                        bb.order_approve,
-                        cc.username,
-                        aa.id_trans AS id_header,
-                        aa.approval_status AS id_approval_status_header,
-                        ee.status_name AS approval_status_header,
-                        bb.approval_status AS id_approval_status_detail,
-                        ff.status_name AS approval_status_detail,
-                        dd.id_invoice,
-                        dd.status_release,
-                        dd.tanggal_retur,
-                        dd.company_id AS company_id,
-                        hh.company_name,
-                        dd.cabang_id AS cabang_id,
-                        gg.id_trans_sales_order,
-                        ii.cabang_name,
-                        gg.customer_id,
-                        jj.nama_customer,
+                        aa.ID,
+                        aa.order_type,
+                        aa.id_trans,
+                        aa.no_urut,
+                        aa.company_id,
+                        aa.cabang_id,
+                        aa.salesman,
+                        aa.tanggal,
+                        aa.customer_id,
+                        aa.id_pembayaran,
+                        aa.total_ppn,
+                        aa.total_pph,
+                        aa.harga_total_hpp,
+                        aa.biaya_admin,
+                        aa.harga_total_ppn_pph,
+                        aa.flag_sales_report,
+                        aa.status_release,
+                        aa.userupdate,
                         aa.updateindb,
-                        bb.active 
+                        ee.company_name,
+                        aa.harga_total,
+                        ff.cabang_name,
+                        ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
+                        gg.nama_customer,
+                        gg.account_va,
+                        gg.account_bank_name,
+                        hh.md5_file,
+                        ii.pembayaran,
+                        jj.username AS nik,
+                        jj.NAME AS nama_sales,
+                        ll.username
                     FROM
                         trans_inventory_subsidiary_sales_order_header aa
-                        LEFT JOIN trans_approval_detail bb ON aa.id_trans = bb.header_id
-                        LEFT JOIN master_approval cc ON bb.master_approval_id = cc.ID 
-                        LEFT JOIN trans_inventory_subsidiary_retur_header dd ON aa.id_trans = dd.id_header
-                        LEFT JOIN master_approval_status ee ON aa.approval_status = ee.id_status
-                        LEFT JOIN master_approval_status ff ON bb.approval_status = ff.id_status
-                        LEFT JOIN trans_inventory_subsidiary_invoice gg ON dd.id_invoice = gg.id_trans
-                        LEFT JOIN master_company hh ON dd.company_id = hh.id_company
-                        LEFT JOIN master_company_cabang ii ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
-                        LEFT JOIN master_customer jj ON gg.customer_id = jj.id_customer
+                        LEFT JOIN master_company ee ON aa.company_id = ee.id_company
+                        LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
+                        AND aa.company_id = ff.id_company
+                        LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                        LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
+                        LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
+                        LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
+                        LEFT JOIN trans_approval_detail kk ON aa.id_trans = kk.header_id
+                        LEFT JOIN master_approval ll ON kk.master_approval_id = ll.ID
             ) zz """
             + str_clause_count
         )
