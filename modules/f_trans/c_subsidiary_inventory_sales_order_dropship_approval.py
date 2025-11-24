@@ -25,36 +25,19 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
         limit,
         offset,
         filter,
-        company_id=None,
-        cabang_id=None,
         username=None,
         filter_other="",
         filter_other_conj="",
     ):
 
-        # filter_other = f" zz.username = '{username}' AND zz.id_approval_status_detail=1 AND active = true AND order_type ='dropship'"
-        # filter_other_conj = f" and "
+        filter_other = f"""A.approval_status = 1 
+                AND A.active = TRUE 
+                AND C.username = '{username}' AND B.order_type = 'dropship' """
 
-        if company_id != None and cabang_id != None:
-            filter_other = f" zz.username = '{username}' AND zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}' AND order_type ='dropship'"
-            filter_other_conj = f" and "
-
-            if company_id == 1:
-                filter_other = f"order_type ='dropship'"
-                filter_other_conj = f"AND"
-
-            if company_id == 2 and cabang_id == 11:
-                filter_other = (
-                    f" zz.company_id = '{company_id}' AND order_type ='dropship'"
-                )
-
-        else:
-            filter_other = f""
-            filter_other_conj = f""
-
+        filter_other_conj = f" and "
 
         if orderby == None or orderby == "":
-            orderby = "zz.updateindb DESC"
+            orderby = "b.updateindb DESC"
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
         )
@@ -63,105 +46,104 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
         )
 
         sql = (
-            f"""SELECT * FROM (
-                    
+            f"""SELECT
+                D.NAME,
+                A.*,
+                B.* 
+                FROM
+                trans_approval_detail
+                A LEFT JOIN (
                     SELECT
-                        aa.ID,
-                        aa.order_type,
-                        aa.id_trans,
-                        aa.no_urut,
-                        aa.company_id,
-                        aa.cabang_id,
-                        aa.salesman,
-                        aa.tanggal,
-                        aa.customer_id,
-                        aa.id_pembayaran,
-                        aa.total_ppn,
-                        aa.total_pph,
-                        aa.harga_total_hpp,
-                        aa.biaya_admin,
-                        aa.harga_total_ppn_pph,
-                        aa.flag_sales_report,
-                        aa.status_release,
-                        aa.userupdate,
-                        aa.updateindb,
-                        ee.company_name,
-                        aa.harga_total,
-                        ff.cabang_name,
-                        ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
-                        gg.nama_customer,
-                        gg.account_va,
-                        gg.account_bank_name,
-                        hh.md5_file,
-                        ii.pembayaran,
-                        jj.username AS nik,
-                        jj.NAME AS nama_sales,
-                        ll.username
+                    aa.ID,
+                    aa.order_type,
+                    aa.id_trans,
+                    aa.no_urut,
+                    aa.company_id,
+                    aa.cabang_id,
+                    aa.salesman,
+                    aa.tanggal,
+                    aa.customer_id,
+                    aa.id_pembayaran,
+                    aa.total_ppn,
+                    aa.total_pph,
+                    aa.harga_total_hpp,
+                    aa.biaya_admin,
+                    aa.harga_total_ppn_pph,
+                    aa.flag_sales_report,
+                    aa.status_release,
+                    aa.userupdate,
+                    aa.updateindb,
+                    ee.company_name,
+                    aa.harga_total,
+                    ff.cabang_name,
+                    ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
+                    gg.nama_customer,
+                    gg.account_va,
+                    gg.account_bank_name,
+                    hh.md5_file,
+                    ii.pembayaran 
                     FROM
-                        trans_inventory_subsidiary_sales_order_header aa
-                        LEFT JOIN master_company ee ON aa.company_id = ee.id_company
-                        LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
-                        AND aa.company_id = ff.id_company
-                        LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
-                        LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
-                        LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
-                        LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
-                        LEFT JOIN trans_approval_detail kk ON aa.id_trans = kk.header_id
-                        LEFT JOIN master_approval ll ON kk.master_approval_id = ll.ID
-                        
-            
-            ) zz """
+                    trans_inventory_subsidiary_sales_order_header aa
+                    LEFT JOIN master_company ee ON aa.company_id = ee.id_company
+                    LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
+                    AND aa.company_id = ff.id_company
+                    LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                    LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
+                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran 
+                ) B ON A.header_id = B.id_trans
+                LEFT JOIN master_approval C ON A.master_approval_id = C."id"
+                LEFT JOIN master_user D ON C.username = D.username 
+               """
             + str_clause
         )
 
         sql_count = (
-            f"""SELECT COUNT(*) as count FROM (
-                    
+            f"""SELECT
+                count(*)
+                FROM
+                trans_approval_detail
+                A LEFT JOIN (
                     SELECT
-                        aa.ID,
-                        aa.order_type,
-                        aa.id_trans,
-                        aa.no_urut,
-                        aa.company_id,
-                        aa.cabang_id,
-                        aa.salesman,
-                        aa.tanggal,
-                        aa.customer_id,
-                        aa.id_pembayaran,
-                        aa.total_ppn,
-                        aa.total_pph,
-                        aa.harga_total_hpp,
-                        aa.biaya_admin,
-                        aa.harga_total_ppn_pph,
-                        aa.flag_sales_report,
-                        aa.status_release,
-                        aa.userupdate,
-                        aa.updateindb,
-                        ee.company_name,
-                        aa.harga_total,
-                        ff.cabang_name,
-                        ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
-                        gg.nama_customer,
-                        gg.account_va,
-                        gg.account_bank_name,
-                        hh.md5_file,
-                        ii.pembayaran,
-                        jj.username AS nik,
-                        jj.NAME AS nama_sales,
-                        ll.username
+                    aa.ID,
+                    aa.order_type,
+                    aa.id_trans,
+                    aa.no_urut,
+                    aa.company_id,
+                    aa.cabang_id,
+                    aa.salesman,
+                    aa.tanggal,
+                    aa.customer_id,
+                    aa.id_pembayaran,
+                    aa.total_ppn,
+                    aa.total_pph,
+                    aa.harga_total_hpp,
+                    aa.biaya_admin,
+                    aa.harga_total_ppn_pph,
+                    aa.flag_sales_report,
+                    aa.status_release,
+                    aa.userupdate,
+                    aa.updateindb,
+                    ee.company_name,
+                    aa.harga_total,
+                    ff.cabang_name,
+                    ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
+                    gg.nama_customer,
+                    gg.account_va,
+                    gg.account_bank_name,
+                    hh.md5_file,
+                    ii.pembayaran 
                     FROM
-                        trans_inventory_subsidiary_sales_order_header aa
-                        LEFT JOIN master_company ee ON aa.company_id = ee.id_company
-                        LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
-                        AND aa.company_id = ff.id_company
-                        LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
-                        LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
-                        LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
-                        LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
-                        LEFT JOIN trans_approval_detail kk ON aa.id_trans = kk.header_id
-                        LEFT JOIN master_approval ll ON kk.master_approval_id = ll.ID
-            
-            ) zz """
+                    trans_inventory_subsidiary_sales_order_header aa
+                    LEFT JOIN master_company ee ON aa.company_id = ee.id_company
+                    LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
+                    AND aa.company_id = ff.id_company
+                    LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                    LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
+                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran 
+                ) B ON A.header_id = B.id_trans
+                LEFT JOIN master_approval C ON A.master_approval_id = C."id"
+                LEFT JOIN master_user D ON C.username = D.username 
+                """
             + str_clause_count
         )
 
@@ -194,6 +176,13 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
             SET approval_status = 1
             WHERE detail_id = {detail_id} and active = true"""
             queries.append(sql_update_status_approval_detail)
+        else:
+            # sql_update_status_approval_detail = f"""update trans_approval_detail
+            # SET approval_status = 1
+            # WHERE detail_id = {data["detail_id"]} and active = true"""
+            # queries.append(sql_update_status_approval_detail)\
+            ##TODO release dropship
+            print("\n\ntrueeeee\n\n")
 
         datetime_now = datetime.now()
 
@@ -212,7 +201,7 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                                                     AND NOT EXISTS (
                                                         SELECT approval_status
                                                         FROM trans_approval_detail dd
-                                                        WHERE dd.id_trans = '{data["id_trans"]}'
+                                                        WHERE dd.header_id = '{data["id_trans"]}'
                                                         AND dd.approval_status <> 3 
                                                         AND dd.active = true
                                                     )"""
@@ -284,14 +273,10 @@ async def read(
     orderby: str = Query(None, alias="$orderby"),
     offset: int = Query(None, alias="$skip"),
     filter: str = Query(None, alias="$filter"),
-    company_id: int = Query(None, alias="$company_id"),
-    cabang_id: int = Query(None, alias="$cabang_id"),
     username: str = Query(None, alias="username"),
 ):
     ob_data = c_subsidiary_inventory_sales_order_dropship_approval()
-    return await ob_data.read(
-        orderby, limit, offset, filter, company_id, cabang_id, username
-    )
+    return await ob_data.read(orderby, limit, offset, filter, username)
 
 
 @app.post("/api/f_trans/c_subsidiary_inventory_sales_order_dropship_approval/approve")
