@@ -232,7 +232,7 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
         sql_reject = f"""
                 UPDATE trans_approval_detail
         SET approval_status = 5, action_time = '{action_time}'
-        WHERE order_approve > {data["order_approve"]} and id_trans = '{data["id_trans"]}'
+        WHERE order_approve > {data["order_approve"]} and header_id = '{data["id_trans"]}'
         and active = true
         """
 
