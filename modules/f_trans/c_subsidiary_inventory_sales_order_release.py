@@ -525,30 +525,33 @@ class c_subsidiary_inventory_sales_order_release(object):
 
         sql_insert_inv_detail_out = f"""insert into trans_inventory_detail ( "produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate") 
         SELECT  "produk_id",
-  "company_id",
-  "cabang_id", 
-  "qty_in" - "qty_out" as qty,
-  ROUND(("ht_in" - "ht_out") / ("qty_in" - "qty_out"), 0) as harga_satuan,
-  "ht_in" - "ht_out" as harga_total,
-  '{datetime.today()}', '{auth.AuthAction.get_data_params("username")}'
-  FROM (
-SELECT
-  "produk_id",
-  "company_id",
-  "cabang_id",
-  SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END) qty_in,
-  SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END) qty_out,
-  SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END) ht_in,
-  SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END) ht_out
-FROM
-  trans_inventory_detail_mutasi 
-WHERE
-  produk_id = {self.detail_data_mutasi["produk_id"]} and company_id = {self.detail_data_mutasi["company_id"]} and cabang_id = {self.detail_data_mutasi["cabang_id"]}
-GROUP BY
-  "produk_id",
-  "company_id",
-  "cabang_id"
-) aa
+                "company_id",
+                "cabang_id", 
+                "qty_in" - "qty_out" as qty,
+                CASE 
+                                WHEN (qty_in - qty_out) = 0 THEN 0
+                                ELSE ROUND((ht_in - ht_out) / (qty_in - qty_out), 2)
+                                END as harga_satuan,
+                                ht_in - ht_out as harga_total,
+                '{datetime.today()}', '{auth.AuthAction.get_data_params("username")}'
+                FROM (
+                SELECT
+                "produk_id",
+                "company_id",
+                "cabang_id",
+                SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END) qty_in,
+                SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END) qty_out,
+                SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END) ht_in,
+                SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END) ht_out
+                FROM
+                trans_inventory_detail_mutasi 
+                WHERE
+                produk_id = {self.detail_data_mutasi["produk_id"]} and company_id = {self.detail_data_mutasi["company_id"]} and cabang_id = {self.detail_data_mutasi["cabang_id"]}
+                GROUP BY
+                "produk_id",
+                "company_id",
+                "cabang_id"
+                ) aa
         """
 
         # sql_insert_inv_detail_out = self.db.genStrInsertSingleObject(
