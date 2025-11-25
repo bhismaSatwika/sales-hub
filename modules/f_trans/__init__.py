@@ -12,4 +12,5 @@ __all__ = [
     "c_user_approval",
     "c_subsidoary_inventory_sales_order_dropship",
     "c_subsidiary_inventory_sales_order_dropship_approval",
+    "c_trans_inventory_holding_delivery_preparation"
 ]
