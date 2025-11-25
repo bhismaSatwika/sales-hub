@@ -1051,10 +1051,14 @@ class c_subsidiary_inventory_sales_order(object):
 						aa.harga_total_ppn_pph,
                         ii.pembayaran,                       
                         jj.name as nama_sales,
+                        CASE WHEN hh.complete_payment = true THEN 'Lunas'
+                        ELSE 'Belum Lunas' END as payment,
+                        amount_total_outstanding,
                         aa.updateindb,
                         aa.company_id,
                         aa.cabang_id,
                         aa.status_release
+                        
                     FROM trans_inventory_subsidiary_sales_order aa
                     LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
                     LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
@@ -1109,6 +1113,8 @@ class c_subsidiary_inventory_sales_order(object):
         ws["R1"].value = "Grand Total"
         ws["S1"].value = "Pembayaran"
         ws["T1"].value = "SalesMan"
+        ws["U1"].value = "Status Pembayaran"
+        ws["T1"].value = "Sisa Pembayaran"
 
         if len(result_data) > 0:
             data_key = []
