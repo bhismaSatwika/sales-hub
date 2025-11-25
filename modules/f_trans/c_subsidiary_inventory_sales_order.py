@@ -616,7 +616,7 @@ class c_subsidiary_inventory_sales_order(object):
             }
         )
 
-        sqlDetail = self.db.genUpdateObject(
+        sqlHeader = self.db.genUpdateObject(
             data,
             {"id_trans": data["id_trans"]},
             "trans_inventory_subsidiary_sales_order_header",
@@ -687,7 +687,7 @@ class c_subsidiary_inventory_sales_order(object):
                 # print(queries)
                 # print("\n\n")
 
-            queries.append(str(sqlDetail))
+            queries.append(str(sqlHeader))
 
             trans = await self.db.executeTrans(queries)
 

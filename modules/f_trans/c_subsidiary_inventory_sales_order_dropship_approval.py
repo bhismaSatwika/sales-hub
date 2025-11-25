@@ -184,6 +184,125 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
             ##TODO release dropship
             print("\n\ntrueeeee\n\n")
 
+            sql_insert_header = f"""INSERT INTO trans_inventory_holding_delivery_preparation_header(
+                                        id_trans,
+                                        no_urut,
+                                        company_id,
+                                        cabang_id,
+                                        salesman,
+                                        tanggal,
+                                        customer_id,
+                                        id_pembayaran,
+                                        total_ppn,
+                                        total_pph,
+                                        harga_total_hpp,
+                                        biaya_admin,
+                                        harga_total_ppn_pph,
+                                        flag_sales_report,
+                                        status_release,
+                                        userupdate,
+                                        updateindb,
+                                        harga_total,
+                                        order_type,
+                                        approval_status,
+                                        description,
+                                        transport_cost)
+                                        SELECT
+                                            id_trans,
+                                            no_urut,
+                                            company_id,
+                                            cabang_id,
+                                            salesman,
+                                            tanggal,
+                                            customer_id,
+                                            id_pembayaran,
+                                            total_ppn,
+                                            total_pph,
+                                            harga_total_hpp,
+                                            biaya_admin,
+                                            harga_total_ppn_pph,
+                                            flag_sales_report,
+                                            status_release,
+                                            userupdate,
+                                            updateindb,
+                                            harga_total,
+                                            order_type,
+                                            approval_status,
+                                            description,
+                                            0 as transport_cost
+                                        FROM trans_inventory_subsidiary_sales_order_header 
+                                        WHERE company_id = {data[ 'company_id' ]}  AND cabang_id = {data[ 'cabang_id' ]} AND id_trans ='{data[ 'id_trans' ]}'"""
+            
+            sql_insert_detail = f"""INSERT INTO trans_inventory_holding_delivery_preparation(
+                                                id_trans,
+                                                produk_id,
+                                                company_id,
+                                                cabang_id,
+                                                qty,
+                                                harga_satuan,
+                                                harga_total,
+                                                updateindb,
+                                                userupdate,
+                                                status_release,
+                                                tanggal,
+                                                customer_id,
+                                                file_upload,
+                                                id_produk_harga_jual,
+                                                ppn_percent,
+                                                ppn_value,
+                                                pph_22_percent,
+                                                pph_22_value,
+                                                harga_total_ppn_pph,
+                                                no_urut,
+                                                id_increment,
+                                                harga_satuan_hpp,
+                                                harga_total_hpp,
+                                                flag_sales_report,
+                                                salesman,
+                                                id_pembayaran,
+                                                biaya_admin,
+                                                customer_id_lama,
+                                                customer_id_baru
+                                                )
+                                            SELECT 
+                                                id_trans,
+                                                produk_id,
+                                                company_id,
+                                                cabang_id,
+                                                qty,
+                                                harga_satuan,
+                                                harga_total,
+                                                updateindb,
+                                                userupdate,
+                                                status_release,
+                                                tanggal,
+                                                customer_id,
+                                                file_upload,
+                                                id_produk_harga_jual,
+                                                ppn_percent,
+                                                ppn_value,
+                                                pph_22_percent,
+                                                pph_22_value,
+                                                harga_total_ppn_pph,
+                                                no_urut,
+                                                id_increment,
+                                                harga_satuan_hpp,
+                                                harga_total_hpp,
+                                                flag_sales_report,
+                                                salesman,
+                                                id_pembayaran,
+                                                biaya_admin,
+                                                customer_id_lama,
+                                                customer_id_baru
+                                    FROM trans_inventory_subsidiary_sales_order
+                                    WHERE company_id = {data['company_id']} AND cabang_id = {data['cabang_id']} AND id_trans = {data['id_trans']}"""
+            
+            trans = await self.db.executeTrans([sql_insert_header,sql_insert_detail])
+            if trans["status"] == False:
+                raise HTTPException(400, str(trans["detail"]))
+
+
+
         datetime_now = datetime.now()
 
         # sql_update_status_header = f"""update trans_approval_header
