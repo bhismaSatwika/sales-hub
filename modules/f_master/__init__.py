@@ -17,4 +17,5 @@ __all__ = [
     "c_master_biaya_admin",
     "c_master_template_download",
     "c_master_jenis_pembayaran",
+    "c_master_minimum_qty"
 ]
