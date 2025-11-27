@@ -343,7 +343,8 @@ class c_subsidiary_inventory_sales_order(object):
                 "id_trans": data_kode["id_trans"],
                 "no_urut": data_kode["no_urut"],
                 "harga_satuan_hpp": detail_[0]["harga_satuan"],
-                "harga_total_hpp": int(data["qty"]) * int(detail_[0]["harga_satuan"]),
+                "harga_total_hpp": float(data["qty"])
+                * float(detail_[0]["harga_satuan"]),
             }
         )
 
@@ -393,11 +394,20 @@ class c_subsidiary_inventory_sales_order(object):
 
     async def update(self, data, files: List[UploadFile], listFilename: List[str]):
 
+        sql = f"""select * 
+        from trans_inventory_detail 
+        where company_id = {data["company_id"]} and cabang_id = {data["cabang_id"]} and produk_id = {data["produk_id"]}"""
+
+        detail_ = await self.db.executeToDict(sql)
+
         data.update(
             {
                 "userupdate": auth.AuthAction.get_data_params("username"),
                 "updateindb": datetime.today(),
                 "status_release": False,
+                "harga_satuan_hpp": detail_[0]["harga_satuan"],
+                "harga_total_hpp": float(data["qty"])
+                * float(detail_[0]["harga_satuan"]),
             }
         )
 

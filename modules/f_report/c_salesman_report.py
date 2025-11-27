@@ -239,7 +239,7 @@ class c_salesman_report(object):
         if salesman == 0:
             salesman_filter = f""
 
-        where = f"where company_id = '{company_id}' {cabang_filter} {salesman_filter}"
+        where = f"and company_id = '{company_id}' {cabang_filter} {salesman_filter}"
 
         sql = f"""
             SELECT
@@ -254,8 +254,8 @@ class c_salesman_report(object):
                 (
                     SELECT
                     b.salesman,
-                    SUM ( A.amount_total ) AS total_sales,
-                    SUM ( CASE WHEN A.tanggal_invoice BETWEEN '{year}-{month}-01' AND '{tanggal}' THEN A.amount_total ELSE 0 END ) AS monthly_sales,
+                    SUM ( A.amount ) AS total_sales,
+                    SUM ( CASE WHEN A.tanggal_invoice BETWEEN '{year}-{month}-01' AND '{tanggal}' THEN A.amount ELSE 0 END ) AS monthly_sales,
                     SUM ( A.amount_total_outstanding ) AS total_outstanding,
                 SUM ( CASE WHEN '{tanggal}' :: DATE - A.tanggal_due_date <= 0 THEN amount_total_outstanding ELSE 0 END ) no_due_date,
                 SUM ( CASE WHEN '{tanggal}':: DATE - A.tanggal_due_date between 1 and 15  THEN amount_total_outstanding ELSE 0 END ) AS overdue_less_15,
@@ -268,13 +268,14 @@ class c_salesman_report(object):
                 
                 WHERE
                 b.status_release = TRUE 
+                {where}
                 GROUP BY
                 b.salesman 
                 )
                 A LEFT JOIN master_user B ON A.salesman = B.id_user
                 LEFT JOIN master_company c ON c.id_company = b.company_id 
                 LEFT JOIN master_company_cabang d ON d.id_cabang = b.cabang_id and d.id_company = b.company_id
-                {where}
+                
                 ORDER BY B.company_id, B.cabang_id, A.salesman
         """
         result = await self.db.executeToDict(sql)

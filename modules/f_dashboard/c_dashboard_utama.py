@@ -63,7 +63,7 @@ class c_dashboard_utama(object):
         elif int(company_id) == 2 and int(cabang_id) == 11:
             where = f"""WHERE company_id = {company_id} AND aa.tanggal_invoice BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
-        sql = f"""SELECT SUM (AA.amount) + sum (aa.amount_pph) + sum(aa.amount_ppn) - sum(bb.biaya_admin) AS harga_total 
+        sql = f"""SELECT SUM (AA.amount) AS harga_total 
                 FROM
                 trans_inventory_subsidiary_invoice aa
                 LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
@@ -215,7 +215,7 @@ class c_dashboard_utama(object):
                             month_ 
                         )
                         A LEFT JOIN ( 
-                        SELECT SUM (AA.amount) + sum (aa.amount_pph) + sum(aa.amount_ppn) - sum(bb.biaya_admin) AS total,
+                        SELECT SUM (AA.amount) AS total,
                             date_part('month', aa.tanggal_invoice) as  MONTH,
                             date_part('year', aa.tanggal_invoice) as year FROM
                             trans_inventory_subsidiary_invoice aa
