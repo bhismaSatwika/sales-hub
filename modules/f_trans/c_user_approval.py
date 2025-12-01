@@ -19,8 +19,8 @@ class c_user_approval(object):
         LEFT JOIN master_approval B on A.master_approval_id = B."id"
         LEFT JOIN master_user C on B.username = C.username
         LEFT JOIN master_approval_status D on A.approval_status = D.id_status
-        WHERE A.header_id = '{id_header}' and a.active = true
-        ORDER BY A.order_approve
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header E on A.header_id = E.id_trans
+        WHERE A.header_id = '{id_header}' and a.active = true 
         """
 
         return await self.db.executeToDict(sql)

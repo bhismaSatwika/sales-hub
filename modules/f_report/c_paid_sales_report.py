@@ -48,16 +48,16 @@ class c_paid_sales_report(object):
             FROM
             (
                 SELECT SUM(aa.amount_total) - sum(aa.amount_total_outstanding) as paid_sales_total,
-                SUM ( aa.qty ) sales_qty,
+                SUM ( bb.qty ) sales_qty,
                 SUM ( bb.harga_total_hpp ) AS hpp,
                 SUM (aa.amount_total) as sales_total,
-                aa.produk_id,
+                bb.produk_id,
                 bb.company_id
                 FROM
                 trans_inventory_subsidiary_invoice aa
                 LEFT JOIN trans_inventory_subsidiary_sales_order bb ON aa.id_trans_sales_order = bb.id_trans
                 {filter_header}
-                GROUP BY aa.produk_id, bb.company_id
+                GROUP BY bb.produk_id, bb.company_id
             ) x
             LEFT JOIN master_produk y on x.produk_id = y.id_produk
             LEFT JOIN master_company z on x.company_id = z.id_company
@@ -80,8 +80,8 @@ class c_paid_sales_report(object):
                     SELECT
                     B.company_id,
                     B.cabang_id,
-                    A.produk_id,
-                    SUM ( A.qty ) AS total_qty,
+                    B.produk_id,
+                    SUM ( B.qty ) AS total_qty,
                     SUM ( amount_total ) AS total_sales,
                     SUM ( amount_total_outstanding ) AS total_outstanding 
                     FROM
@@ -89,7 +89,7 @@ class c_paid_sales_report(object):
                     A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
                     {filter_branch_detail}
                     GROUP BY
-                    A.produk_id,
+                    B.produk_id,
                     company_id,
                     cabang_id 
                 )
@@ -99,45 +99,39 @@ class c_paid_sales_report(object):
                 AND A.cabang_id = D.id_cabang
         """
 
-        sql_detail = f"""SELECT
-        *,
-        ROUND(xx.paid_sales * xx.percent_margin / 100, 2)::FLOAT as paid_margin
-        FROM
-        (
+        sql_detail = f"""
             SELECT
-            aa.id_trans AS invoice_number,
-            bb.nama_customer,
-            cc.nama_produk,
-            hh.cabang_name,
-            aa.qty,
-            ff.uom_satuan,
-            ee.harga_satuan,
-            ee.harga_total_ppn_pph,
-            ee.biaya_admin,
-            ee.harga_satuan_hpp,
-            ee.harga_total_hpp,
-            ee.harga_total - ee.harga_total_hpp AS margin,
-            round( ( ( ee.harga_total - ee.harga_total_hpp ) * 100 / ee.harga_total :: FLOAT ) :: NUMERIC, 2 ) AS percent_margin,
-            aa.amount - aa.amount_total_outstanding AS paid_sales
-            
+            *,
+            ROUND( xx.paid_sales * xx.percent_margin / 100, 2 ) :: FLOAT AS paid_margin 
             FROM
-            trans_inventory_subsidiary_invoice aa
-            LEFT JOIN master_customer bb ON aa.customer_id = bb.id_customer
-            LEFT JOIN master_produk cc ON aa.produk_id = cc.id_produk
-            LEFT JOIN master_jenis_pembayaran dd ON aa.id_pembayaran = dd.id_pembayaran
-            LEFT JOIN trans_inventory_subsidiary_sales_order ee ON aa.id_trans_sales_order = ee.id_trans
-            LEFT JOIN master_produk_uom_satuan ff ON cc.uom_satuan = ff.id_uom_satuan
-            LEFT JOIN master_company gg ON ee.company_id = gg.id_company
-            LEFT JOIN master_company_cabang hh ON ee.cabang_id = hh.id_cabang
-            LEFT JOIN ( SELECT id_user, NAME FROM master_user WHERE is_salesman = 't' ) ii ON ee.salesman = ii.id_user
-            LEFT JOIN master_provinsi jj ON bb.kode_prov = jj.kode_prov
-            LEFT JOIN master_produk_kategori kk ON cc.kategori_produk = kk.id_kategori 
-            {filter_detail}
-        AND aa.amount_total != aa.amount_total_outstanding 
-        ) XX
+            (
+                SELECT
+                aa.id_trans AS invoice_number,
+                bb.nama_customer,
+                hh.cabang_name,
+                ee.harga_total_ppn_pph,
+                ee.biaya_admin,
+                ee.harga_total_hpp,
+                ee.harga_total - ee.harga_total_hpp AS margin,
+                round( ( ( ee.harga_total - ee.harga_total_hpp ) * 100 / ee.harga_total :: FLOAT ) :: NUMERIC, 2 ) AS percent_margin,
+                aa.amount - aa.amount_total_outstanding AS paid_sales 
+                FROM
+                trans_inventory_subsidiary_invoice aa
+                LEFT JOIN master_customer bb ON aa.customer_id = bb.id_customer
+                LEFT JOIN master_jenis_pembayaran dd ON aa.id_pembayaran = dd.id_pembayaran
+                LEFT JOIN trans_inventory_subsidiary_sales_order ee ON aa.id_trans_sales_order = ee.id_trans
+                LEFT JOIN master_company gg ON ee.company_id = gg.id_company
+                LEFT JOIN master_company_cabang hh ON ee.cabang_id = hh.id_cabang
+                LEFT JOIN ( SELECT id_user, NAME FROM master_user WHERE is_salesman = 't' ) ii ON ee.salesman = ii.id_user
+                LEFT JOIN master_provinsi jj ON bb.kode_prov = jj.kode_prov 
+                {filter_detail} 
+            AND aa.amount_total != aa.amount_total_outstanding 
+            ) XX
                                         """
 
-        print(sql_detail)
+        print("\n\n\n", sql_detail)
+        print("\n\n\n", sql_header)
+        print("\n\n\n", sql_payment_per_company)
         query_sql_header = await self.db.executeToDict(sql_header)
         query_sql_detail = await self.db.executeToDict(sql_detail)
         query_sql_payment_per_company = await self.db.executeToDict(

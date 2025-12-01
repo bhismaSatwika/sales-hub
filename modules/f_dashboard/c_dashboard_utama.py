@@ -404,10 +404,11 @@ class c_dashboard_utama(object):
             + str_clause_count
         )
 
-        # print(sql_count)
+        print(sql)
 
         try:
             result = await self.db.executeToDict(sql)
+            print(result)
             result_count = await self.db.executeToDict(sql_count)
 
             data = {"data": result, "count": result_count[0]["count"]}
@@ -597,8 +598,8 @@ class c_dashboard_utama(object):
             SELECT
             B.company_id,
             B.cabang_id,
-            A.produk_id,
-            SUM ( A.qty ) AS total_qty,
+            B.produk_id,
+            SUM ( B.qty ) AS total_qty,
             SUM ( amount_total ) AS total_sales,
             SUM ( amount_total_outstanding ) AS total_outstanding 
             FROM
@@ -606,7 +607,7 @@ class c_dashboard_utama(object):
             A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
             {where}
             GROUP BY
-            A.produk_id,
+            B.produk_id,
             company_id,
             cabang_id 
         )
@@ -626,8 +627,8 @@ class c_dashboard_utama(object):
             SELECT
             B.company_id,
             B.cabang_id,
-            A.produk_id,
-            SUM ( A.qty ) AS total_qty,
+            B.produk_id,
+            SUM ( B.qty ) AS total_qty,
             SUM ( amount_total ) AS total_sales,
             SUM ( amount_total_outstanding ) AS total_outstanding 
             FROM
@@ -635,7 +636,7 @@ class c_dashboard_utama(object):
             A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
             {where}
             GROUP BY
-            A.produk_id,
+            B.produk_id,
             company_id,
             cabang_id 
         )
@@ -687,30 +688,30 @@ class c_dashboard_utama(object):
 
         sql = f"""
     SELECT B.nama_produk, A.* FROM (
-        SELECT Z.produk_id, SUM(Z.qty) total_qty,SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding from trans_inventory_subsidiary_invoice Z
+        SELECT A.produk_id, SUM(A.qty) total_qty,SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding from trans_inventory_subsidiary_invoice Z
         LEFT JOIN trans_inventory_subsidiary_sales_order A on Z.id_trans_sales_order = A.id_trans
         LEFT JOIN master_company B on A.company_id = B.id_company
         LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id = C.id_company
         {where}
-        GROUP BY Z.produk_id
+        GROUP BY A.produk_id
         ) A
         LEFT JOIN master_produk B on A.produk_id = B.id_produk
         """
 
         sql_count = f"""
         SELECT Count(A.*) as count FROM (
-        SELECT Z.produk_id,SUM(Z.qty) total_qty, SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding  from trans_inventory_subsidiary_invoice Z
+        SELECT A.produk_id,SUM(A.qty) total_qty, SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding  from trans_inventory_subsidiary_invoice Z
         LEFT JOIN trans_inventory_subsidiary_sales_order A on Z.id_trans_sales_order = A.id_trans
         LEFT JOIN master_company B on A.company_id = B.id_company
         LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id
         = C.id_company
         {where}
-        GROUP BY Z.produk_id
+        GROUP BY A.produk_id
         ) A
         LEFT JOIN master_produk B on A.produk_id = B.id_produk
         """
 
-        # print(sql)
+        print(sql)
 
         try:
             result = await self.db.executeToDict(sql)

@@ -254,14 +254,9 @@ class PDF(FPDF):
         headers_list = [
             "Invoice",
             "Cust",
-            "Nama Produk",
             "Cabang",
-            "Qty",
-            "UOM",
-            "Hrg Sat",
             "Hrg Total",
             "Adm",
-            "Hrg HPP",
             "Hrg Total HPP",
             "Margin",
             "Mrg %",
@@ -309,7 +304,7 @@ class PDF(FPDF):
 
         #### Header Table ####
         with self.table(
-            col_widths=(28, 15, 15, 13, 6, 6, 10, 15, 8, 10, 15, 11, 10, 15, 10),
+            col_widths=(28, 15, 15, 15, 15, 15, 15, 15, 15, 15),
             borders_layout="HORIZONTAL_LINES",
             width=self.w - self.l_margin - self.r_margin,
             align="L",
@@ -335,7 +330,7 @@ class PDF(FPDF):
         total_margin_paid_sales = 0
 
         with self.table(
-            col_widths=(28, 15, 15, 13, 6, 6, 10, 15, 8, 10, 15, 11, 10, 15, 10),
+            col_widths=(28, 15, 15, 15, 15, 15, 15, 15, 15, 15),
             text_align="C",
             align="L",
             cell_fill_color=250,
@@ -348,19 +343,17 @@ class PDF(FPDF):
                 row = table.row()
                 column = 0
                 for datum in data_row:
-                    if column == 4:
-                        total_qty += datum
-                    if column == 7:
+                    if column == 3:
                         total_harga += datum
-                    if column == 8:
+                    if column == 4:
                         total_biaya_admin += datum
-                    if column == 10:
+                    if column == 5:
                         total_hpp += datum
-                    if column == 11:
+                    if column == 6:
                         total_margin += datum
-                    if column == 13:
+                    if column == 8:
                         total_paid_sales += datum
-                    if column == 14:
+                    if column == 9:
                         total_margin_paid_sales += datum
 
                     a = self.convert_value(datum)
@@ -381,21 +374,17 @@ class PDF(FPDF):
             "",
             "",
             "",
-            "",
-            total_qty,
-            "",
-            "",
             total_harga,
             total_biaya_admin,
-            "",
             total_hpp,
             total_margin,
             "",
             total_paid_sales,
             total_margin_paid_sales,
         ]
+
         with self.table(
-            col_widths=(28, 15, 15, 13, 6, 6, 10, 15, 8, 10, 15, 11, 10, 15, 10),
+            col_widths=(28, 15, 15, 15, 15, 15, 15, 15, 15, 15),
             borders_layout="HORIZONTAL_LINES",
             width=self.w - self.l_margin - self.r_margin,
             align="L",

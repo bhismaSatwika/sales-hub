@@ -8,9 +8,12 @@ import qrcode
 
 
 class PDF(FPDF):
-    def __init__(self, data, orientation="P", unit="mm", format="A4"):
+    def __init__(
+        self, data_header, data_detail, orientation="P", unit="mm", format="A4"
+    ):
         super().__init__(orientation, unit, format)
-        self.data = data
+        self.data_header = data_header
+        self.data_detail = data_detail
 
     def header(self):
         self.add_font("Poppins", "", "files/font/Poppins/Poppins-Regular.ttf")
@@ -77,7 +80,7 @@ class PDF(FPDF):
         self.top_data()
         self.table_data()
         self.bottom()
-        filename = f"files/invoice_sales_order/{self.data['id_trans']}.pdf"
+        filename = f"files/invoice_sales_order/{self.data_header['id_trans']}.pdf"
 
         pdf_bytes = self.output(dest="S")
         pdf_buffer = BytesIO(pdf_bytes)
@@ -108,7 +111,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=4,
-            text=self.data["no_invoice"],
+            text=self.data_header["no_invoice"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -135,7 +138,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=4,
-            text=self.data["nama_customer"],
+            text=self.data_header["nama_customer"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -145,7 +148,7 @@ class PDF(FPDF):
         self.multi_cell(
             w=125,
             h=4,
-            text=self.data["alamat"],
+            text=self.data_header["alamat"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -155,7 +158,7 @@ class PDF(FPDF):
         self.cell(
             w=50,
             h=4,
-            text="Telp/No.Hp : " + str(self.data["no_hp"]),
+            text="Telp/No.Hp : " + str(self.data_header["no_hp"]),
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -179,7 +182,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=4,
-            text=self.convert_value(self.data["tanggal_invoice"]),
+            text=self.convert_value(self.data_header["tanggal_invoice"]),
             align="L",
             new_x="LMARGIN",
             new_y="TOP",
@@ -201,7 +204,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=4,
-            text=self.convert_value(self.data["tanggal_due_date"]),
+            text=self.convert_value(self.data_header["tanggal_due_date"]),
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -223,7 +226,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=4,
-            text=self.data["nama_sales"],
+            text=self.data_header["nama_sales"],
             align="L",
             new_x="LMARGIN",
             new_y="TOP",
@@ -242,7 +245,7 @@ class PDF(FPDF):
             new_y="NEXT",
         )
 
-        harga_total_ppn_pph = self.data["harga_total_ppn_pph"]
+        harga_total_ppn_pph = self.data_header["harga_total_ppn_pph"]
 
         self.set_font("Arial", "B", 10)
         self.set_x(full_w - full_w / 4)
@@ -255,7 +258,7 @@ class PDF(FPDF):
             new_y="NEXT",
         )
 
-        ato = self.data["ato"]
+        ato = self.data_header["ato"]
         if ato > 0 and ato != harga_total_ppn_pph:
             self.set_font("Poppins", "I", 9)
             self.set_x(full_w - full_w / 4)
@@ -283,13 +286,13 @@ class PDF(FPDF):
         self.set_x(full_w - full_w / 4)
 
         self.set_text_color(178, 4, 4)
-        if self.data["complete_payment"] == "Lunas":
+        if self.data_header["complete_payment"] == "Lunas":
             self.set_text_color(33, 163, 102)
 
         self.cell(
             w=w / 2,
             h=5,
-            text=self.data["complete_payment"],
+            text=self.data_header["complete_payment"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -312,7 +315,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=3,
-            text=self.data["pembayaran"],
+            text=self.data_header["pembayaran"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -332,13 +335,15 @@ class PDF(FPDF):
         full_w = page_width - left_margin - right_margin
         w = full_w / 2
 
-        header = ["Nama Produk", "Quantity", "Satuan", "Harga Satuan", "Total"]
-        keys = [
-            self.convert_value(self.data["nama_produk"]),
-            self.convert_value(self.data["qty"]),
-            self.convert_value(self.data["uom_satuan"]),
-            self.convert_value(self.data["harga_satuan"]),
-            self.convert_value(self.data["harga_total"]),
+        header = [
+            "Nama Produk",
+            "Quantity",
+            "Satuan",
+            "Harga Satuan",
+            "Harga Total",
+            "PPN",
+            "PPH",
+            "Total",
         ]
 
         self.line(
@@ -348,11 +353,14 @@ class PDF(FPDF):
             y2=self.get_y(),
         )
 
-        self.set_x(left_margin)
+        self.set_x(left_margin + 5)
         self.set_font("Poppins", "", 9)
 
         with self.table(
             col_widths=(
+                30,
+                30,
+                17,
                 30,
                 30,
                 30,
@@ -360,7 +368,7 @@ class PDF(FPDF):
                 30,
             ),
             borders_layout="HORIZONTAL_LINES",
-            width=self.w - self.l_margin - self.r_margin,
+            width=self.w - self.l_margin - self.r_margin - 10,
             align="L",
             text_align="C",
             first_row_as_headings=False,
@@ -377,10 +385,24 @@ class PDF(FPDF):
             y2=self.get_y(),
         )
 
-        self.set_x(left_margin)
+        self.set_x(left_margin + 5)
+
+        rows = []
+
+        if self.data_detail != []:
+            headers = self.data_detail[0].keys()
+            header_list = list(headers)
+            rows = [[item[key] for key in header_list] for item in self.data_detail]
+        else:
+            rows = [[]]
+
+        body_data = rows
 
         with self.table(
             col_widths=(
+                30,
+                30,
+                17,
                 30,
                 30,
                 30,
@@ -388,17 +410,18 @@ class PDF(FPDF):
                 30,
             ),
             borders_layout="HORIZONTAL_LINES",
-            width=self.w - self.l_margin - self.r_margin,
+            width=self.w - self.l_margin - self.r_margin - 10,
             align="L",
             text_align="C",
             first_row_as_headings=False,
         ) as table:
-            for key in [keys]:
+            for data_row in body_data:
+                row = table.row()
+                for datum in data_row:
+                    a = self.convert_value(datum)
+                    row.cell(a, padding=1)
 
-                self.set_font("Poppins", "I", 9)
-                table.row(key)
-
-        self.ln(7)
+        self.ln(5)
         self.line(
             x1=full_w / 1.5,
             y1=self.get_y(),
@@ -420,7 +443,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2.5,
             h=8,
-            text=f'Rp. {self.convert_value(self.data["harga_total"])}',
+            text=f'Rp. {self.convert_value(self.data_header["harga_total"])}',
             align="R",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -440,7 +463,7 @@ class PDF(FPDF):
         self.cell(
             w=50,
             h=8,
-            text=f'PPN ({self.data["ppn_percent"]}%)',
+            text=f"PPN",
             align="L",
             new_x="LMARGIN",
             new_y="TOP",
@@ -449,7 +472,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2.5,
             h=8,
-            text=f'Rp. {self.convert_value(self.data["ppn_value"])}',
+            text=f'Rp. {self.convert_value(self.data_header["total_ppn"])}',
             align="R",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -458,7 +481,7 @@ class PDF(FPDF):
         self.cell(
             w=50,
             h=8,
-            text=f'PPH 22 ({self.convert_value(self.data["pph_22_percent"])}%)',
+            text=f"PPH 22",
             align="L",
             new_x="LMARGIN",
             new_y="TOP",
@@ -467,7 +490,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2.5,
             h=8,
-            text=f'Rp. {self.convert_value(self.data["pph_22_value"])}',
+            text=f'Rp. {self.convert_value(self.data_header["total_pph"])}',
             align="R",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -485,7 +508,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2.5,
             h=8,
-            text=f'Rp. {self.convert_value(self.data["biaya_admin"])}',
+            text=f'Rp. {self.convert_value(self.data_header["biaya_admin"])}',
             align="R",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -517,7 +540,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2.5,
             h=8,
-            text=f'Rp. {self.convert_value(self.data["harga_total_ppn_pph"])}',
+            text=f'Rp. {self.convert_value(self.data_header["harga_total_ppn_pph"])}',
             align="R",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -556,12 +579,12 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=5,
-            text=f'{self.data["account_bank_name"]}',
+            text=f'{self.data_header["account_bank_name"]}',
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
         )
-        va = str(self.data["account_va"])
+        va = str(self.data_header["account_va"])
 
         account_va = ""
         for i, value in enumerate(va):
@@ -589,7 +612,7 @@ class PDF(FPDF):
 
         qr.add_data(
             "https://saleshub.idfood.co.id/api/f_trans/c_subsidiary_inventory_sales_order/create_pdf_so?id_="
-            + self.data["md5_file"]
+            + self.data_header["md5_file"]
         )
 
         qr.make(fit=True)

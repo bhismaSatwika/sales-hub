@@ -37,8 +37,8 @@ class c_sales_order_recap(object):
                     aa.status_release,
                     (CASE 
                         WHEN aa.status_release = true
-                        THEN 'release'
-                    ELSE 'draft'
+                        THEN 'Release'
+                    ELSE 'Draft'
                     END) as ket_status_release,
                     aa.bulan,
                     aa.tahun,

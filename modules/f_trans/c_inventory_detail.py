@@ -26,7 +26,7 @@ class c_trans_inventory_detail(object):
         cabang_id=None,
         is_cabang=False,
         filter_other="",
-        filter_other_conj="",
+        filter_other_conj="and",
     ):
 
         if company_id != 1 and is_cabang == True:
@@ -37,7 +37,7 @@ class c_trans_inventory_detail(object):
 
         elif company_id == 1 and is_cabang == True:
             filter_other = f"(1=1)"
-            filter_other_conj = f""
+            filter_other_conj = f"and"
 
         elif company_id == 1 and is_cabang == False:
             filter_other = (
@@ -96,8 +96,25 @@ class c_trans_inventory_detail(object):
         # print(sql)
 
         sql_count = (
-            f"""SELECT count(*) count FROM (
-        SELECT aa.*
+            f"""SELECT Count(*) as count FROM (
+            SELECT 
+                aa.id_trans,
+                bb.id_produk as produk_id,
+                bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
+                cc.id_kategori as kategori_id,
+                cc.kategori,
+                dd.id_uom_satuan,
+                dd.uom_satuan,
+                ee.id_company as company_id,
+                ee.company_name,
+                ff.id_cabang as cabang_id,
+                ff.cabang_name,
+                aa.qty,
+                aa.harga_satuan,
+                aa.harga_total,
+                aa.updateindb,
+                bb.ppn,
+                bb.pph22
             FROM trans_inventory_detail aa
             LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
             LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
@@ -106,7 +123,6 @@ class c_trans_inventory_detail(object):
             LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company
             LEFT JOIN master_produk_kategori gg ON bb.kategori_produk = gg.id_kategori
             LEFT JOIN master_produk_uom_satuan hh ON bb.uom_satuan = hh.id_uom_satuan
-
         ) zz """
             + str_clause_count
         )
@@ -127,7 +143,7 @@ class c_trans_inventory_detail(object):
         cabang_id=None,
         is_cabang=False,
         filter_other="",
-        filter_other_conj="and",
+        filter_other_conj="",
     ):
 
         where = """

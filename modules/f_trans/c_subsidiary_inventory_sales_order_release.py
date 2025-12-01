@@ -2,6 +2,7 @@ import base64
 from datetime import datetime, timedelta
 
 from fastapi import HTTPException, Request
+from fastapi.responses import StreamingResponse
 
 from library import *
 import os
@@ -164,7 +165,7 @@ class c_subsidiary_inventory_sales_order_release(object):
                     aa.qty,
                     aa.harga_satuan,
                     aa.harga_total,
-                    ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'' END ) AS ket_status_release,
+                    ( CASE WHEN aa.status_release = TRUE THEN 'Release' ELSE'' END ) AS ket_status_release,
                     aa.status_release,
                     aa.tanggal,
                     aa.file_upload,
@@ -216,6 +217,66 @@ class c_subsidiary_inventory_sales_order_release(object):
         # return data
 
     async def create_pdf_do(self, id_trans):
+
+        sql_header = f"""SELECT
+                            ff.id_trans,
+                            ff.id_trans_sales_order,
+                            ff.tanggal_do,
+                            bb.id_company AS company_id,
+                            bb.company_name,
+                            cc.id_cabang AS cabang_id,
+                            cc.cabang_name,
+                            gg.id_customer AS customer_id,
+                            gg.nama_customer,
+                            gg.alamat,
+                            gg.no_ktp,
+                            gg.no_hp,
+                            gg.email,
+                            gg.account_va,
+                            gg.account_bank_name
+                        FROM
+                            trans_inventory_subsidiary_sales_order_header aa
+                            LEFT JOIN master_company bb ON aa.company_id = bb.id_company
+                            LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
+                            LEFT JOIN master_user dd ON aa.salesman = dd.id_user
+                            LEFT JOIN master_jenis_pembayaran ee ON aa.id_pembayaran = ee.id_pembayaran
+                            LEFT JOIN trans_inventory_subsidiary_delivery_order ff ON aa.id_trans = ff.id_trans_sales_order
+                            LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer 	
+                        WHERE
+                            aa.id_trans = '{id_trans}'"""
+
+        sql_detail = f"""SELECT
+                            dd.nama_produk,
+                            aa.qty,
+                            ee.uom_satuan
+                        FROM
+                            trans_inventory_subsidiary_sales_order aa
+                            LEFT JOIN master_company bb ON aa.company_id = bb.id_company
+                            LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company 
+                            AND aa.cabang_id = cc.id_cabang
+                            LEFT JOIN master_produk dd ON aa.produk_id = dd.id_produk
+                            LEFT JOIN master_produk_uom_satuan ee ON dd.uom_satuan = ee.id_uom_satuan
+                            LEFT JOIN trans_inventory_subsidiary_delivery_order ff ON aa.id_trans = ff.id_trans_sales_order 
+                        WHERE
+                            aa.id_trans = '{id_trans}'"""
+
+        result_header = await self.db.executeToDict(sql_header)
+        result_detail = await self.db.executeToDict(sql_detail)
+
+        data_header = result_header[0]
+        data_detail = result_detail
+        pdf = PDF_DO(data_header, data_detail)
+
+        pdf_buffer = pdf.generate_report()
+        filenamex = data_header["id_trans"]
+
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename={filenamex}.pdf"},
+        )
+
+    async def create_pdf_do_old(self, id_trans):
         sql = f"""SELECT
                     aa.id_trans,
                     aa.id_trans_sales_order,
@@ -278,7 +339,9 @@ class c_subsidiary_inventory_sales_order_release(object):
             }
 
         ## validasi stok inventory dan jumlah quantity yang akan dirilis
-        await self.validasi_quantity(data)
+        await self.validasi_quantity(
+            data["company_id"], data["cabang_id"], data["id_trans"]
+        )
 
         ## validasi payment
         await self.validasi_paid_payment(data)
@@ -290,23 +353,26 @@ class c_subsidiary_inventory_sales_order_release(object):
         await self.select_mutasi(data)
         # ---
 
-        # update status release sales order menjadi true
+        # # update status release sales order menjadi true
         sql_update_release_sales_order = self.update_status_release(data)
-        # delete inventory detail
+        # # update status release sales order menjadi true
+        sql_update_hpp_sales_order = self.update_hpp(data)
+        # # delete inventory detail
         sql_delete_inventory_detail = self.delete_inventory_detail(data)
-        # insert mutasi out dari sales order
+        # # insert mutasi out dari sales order
         sql_insert_inventory_detail = self.insert_inventory_detail(data)
-        # insert data sales order ke delivery order
+        # # # insert data sales order ke delivery order
         sql_insert_delivery_order = await self.insert_delivery_order(data)
-        # insert data sales order ke invoice order
+        # # # insert data sales order ke invoice order
         sql_insert_invoice_order = await self.insert_invoice_order(data)
 
         try:
             print("\n\n\n\n\n")
-            print("Insert Mutasi")
             print(sql_insert_mutasi)
             print("\n\n\n\n\n")
             print(sql_update_release_sales_order)
+            print("\n\n\n\n\n")
+            print(sql_update_hpp_sales_order)
             print("\n\n\n\n\n")
             print(sql_delete_inventory_detail)
             print("\n\n\n\n\n")
@@ -315,10 +381,12 @@ class c_subsidiary_inventory_sales_order_release(object):
             print(sql_insert_delivery_order)
             print("\n\n\n\n\n")
             print(sql_insert_invoice_order)
+
             trans = await self.db.executeTrans(
                 [
                     sql_insert_mutasi,
                     sql_update_release_sales_order,
+                    sql_update_hpp_sales_order,
                     sql_delete_inventory_detail,
                     sql_insert_inventory_detail,
                     sql_insert_delivery_order,
@@ -336,44 +404,48 @@ class c_subsidiary_inventory_sales_order_release(object):
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    async def validasi_quantity(self, data):
-        sql_get_stok_inventory = f"""SELECT aa.qty
-                            FROM trans_inventory_detail aa
-                            LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
-                            WHERE aa.company_id = {data['company_id']} AND aa.cabang_id = {data['cabang_id']} AND aa.produk_id = {data['produk_id']}
-                           """
+    async def validasi_quantity(self, company_id, cabang_id, id_trans):
+        sql_validate = f"""SELECT aa.company_id,aa.cabang_id,aa.produk_id,bb.nama_produk,SUM(aa.qty) as qty_inventory,SUM(cc.qty) as qty_sales
+                                        FROM trans_inventory_detail aa
+                                        LEFT JOIN master_produk bb
+                                        ON aa.produk_id = bb.id_produk
+                                        LEFT JOIN (
+                                        SELECT company_id,produk_id,cabang_id,qty
+                                                FROM trans_inventory_subsidiary_sales_order 
+                                                WHERE id_trans = '{id_trans}'
+                                        ) cc ON aa.produk_id = cc.produk_id AND aa.company_id = cc.company_id AND aa.cabang_id = cc.cabang_id
+                                        WHERE aa.company_id = {company_id} AND aa.cabang_id = {cabang_id} 
+                                        AND aa.produk_id IN(
+                                                SELECT produk_id
+                                                FROM trans_inventory_subsidiary_sales_order 
+                                                WHERE id_trans = '{id_trans}'
+                                        )
+                                        GROUP BY aa.company_id,aa.cabang_id,aa.produk_id,bb.nama_produk
+                                        HAVING SUM(cc.qty) > SUM(aa.qty)"""
 
-        sql_get_qty_sales_order = f"""select qty from trans_inventory_subsidiary_sales_order where id_trans = '{data['id_trans']}'"""
-
-        print(sql_get_qty_sales_order)
-        print("\n\n\n\n\n")
-        print(sql_get_stok_inventory)
+        # print("\n\n\n")
+        # print(sql_validate)
 
         message = ""
 
         try:
-            existing_inventory_res = await self.db.executeToDict(sql_get_stok_inventory)
-            qty_sales_order = await self.db.executeToDict(sql_get_qty_sales_order)
+            result = await self.db.executeToDict(sql_validate)
+            # print("\n\n\n")
+            # print(result)
 
-            qty_sales_order = qty_sales_order[0]["qty"]
-            existing_inventory = existing_inventory_res[0]["qty"]
-
-            print("\n\n\n\n\n")
-            print(qty_sales_order)
-            print("\n\n\n\n\n")
-            print(existing_inventory)
-            print(int(existing_inventory) < int(qty_sales_order))
-
-            if int(existing_inventory) < int(qty_sales_order):
-                message = "Stok tidak mencukupi. Cek stok!"
+            if len(result) > 0:
+                string = ""
+                for res in result:
+                    string = f"""Produk {res['nama_produk']} memiliki sisa stok :{res['qty_inventory']}, """
+                    message = message + string
+                print(string)
                 raise HTTPException(
                     status_code=400,
-                    detail="Stok tidak mencukupi. Cek stok!",
+                    detail=string,
                 )
+
         except Exception as e:
-            message = (
-                "Error ketika melakukan validasi stok (query): " + message + str(e)
-            )
+            message = "Error ketika melakukan validasi stok: " + message + str(e)
             raise HTTPException(
                 status_code=400,
                 detail=message,
@@ -422,43 +494,49 @@ class c_subsidiary_inventory_sales_order_release(object):
             )
 
     async def insert_mutasi(self, data):
-        sql_sales_order = f"""SELECT
-            id_trans,
-            produk_id,
-            company_id,
-            cabang_id,
-            qty,
-            harga_satuan,
-            harga_total,
-            tanggal,
-            harga_satuan_hpp,
-            harga_total_hpp
-        FROM trans_inventory_subsidiary_sales_order
-        WHERE company_id = {data['company_id']} AND cabang_id = {data['cabang_id']} AND produk_id = {data['produk_id']} and id_trans = '{data['id_trans']}'"""
+        sql_insert_mutasi = f"""
+            INSERT INTO trans_inventory_detail_mutasi (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,updateindb,userupdate,in_out,mutasi_type,id_references,tabel_reference,tanggal)
+            (
 
-        result_sales_order = await self.db.executeToDict(sql_sales_order)
-        sales_order = result_sales_order[0]
+            SELECT
+                A.produk_id,
+                A.company_id,
+                A.cabang_id,
+                A.qty,
+                b.harga_satuan,
+                ROUND(b.harga_satuan * A.qty, 2) as harga_total_hpp,
+                '{datetime.today()}' as updateindb,
+                '{auth.AuthAction.get_data_params("username")}' as userupdate,
+                'OUT' as in_out,
+                'SO' as mutasi_type,
+                A.id_trans as id_references,
+                'trans_inventory_subsidiary_sales_order' as tabel_reference,
+                '{datetime.now().date()}' as tanggal
+                FROM
+                trans_inventory_subsidiary_sales_order A
+                LEFT JOIN trans_inventory_detail B on A.produk_id = B.produk_id and A.company_id = B.company_id AND A.cabang_id = B.cabang_id
+                WHERE A.company_id = {data['company_id']}
+                AND A.cabang_id = {data['cabang_id']}
+                AND A.id_trans = '{data['id_trans']}'
+            )"""
 
-        data_inv_mutasi = {
-            "produk_id": sales_order["produk_id"],
-            "company_id": sales_order["company_id"],
-            "cabang_id": sales_order["cabang_id"],
-            "qty": sales_order["qty"],
-            "harga_satuan": sales_order["harga_satuan_hpp"],
-            "harga_total": sales_order["harga_total_hpp"],
-            "updateindb": datetime.today(),
-            "userupdate": auth.AuthAction.get_data_params("username"),
-            "in_out": "OUT",
-            "mutasi_type": "SO",
-            "id_references": sales_order["id_trans"],
-            "tabel_reference": "trans_inventory_subsidiary_sales_order",
-            "tanggal": datetime.now().date(),
-        }
+        return sql_insert_mutasi
 
-        sql_insert_inv_mutasi = self.db.genStrInsertSingleObject(
-            data_inv_mutasi, "trans_inventory_detail_mutasi"
-        )
-        return sql_insert_inv_mutasi
+    def update_hpp(self, data):
+        sql_update_hpp = f"""
+            UPDATE trans_inventory_subsidiary_sales_order A 
+                SET harga_satuan_hpp = B.harga_satuan,
+                harga_total_hpp = ROUND( A.qty * B.harga_satuan, 2 ),
+                updateindb = now()
+                FROM
+                trans_inventory_detail B 
+            WHERE
+            A.id_trans = '{data['id_trans']}' 
+            AND A.produk_id = B.produk_id 
+            AND A.company_id = B.company_id 
+            AND A.cabang_id = B.cabang_id
+        """
+        return sql_update_hpp
 
     async def select_mutasi(self, data):
         sql_detail_mutasi = f"""SELECT produk_id,
@@ -476,7 +554,11 @@ class c_subsidiary_inventory_sales_order_release(object):
                 SUM(case when in_out ='IN' then harga_total else 0 end)-SUM(case when in_out ='OUT' then harga_total else 0 end) harga_total
             FROM
                 trans_inventory_detail_mutasi
-            WHERE company_id = {data['company_id']} and cabang_id = {data['cabang_id']} and produk_id = {data['produk_id']} 
+            WHERE company_id = {data['company_id']} and cabang_id = {data['cabang_id']} and produk_id IN (
+                    SELECT produk_id
+                    FROM trans_inventory_subsidiary_sales_order 
+                    WHERE id_trans = '{data['id_trans']}'
+                )
                 GROUP BY
                 produk_id,
                 company_id,
@@ -492,53 +574,57 @@ class c_subsidiary_inventory_sales_order_release(object):
         print("\n\n\n\n\n")
 
     def update_status_release(self, data):
-        sql_update_status_release_inv_sales_order = f"""UPDATE trans_inventory_subsidiary_sales_order SET status_release = 'true'
+        sql_update_status_release_inv_sales_order = f"""UPDATE trans_inventory_subsidiary_sales_order_header SET status_release = 'true'
                 WHERE id_trans = '{data['id_trans']}'"""
         return sql_update_status_release_inv_sales_order
 
     def delete_inventory_detail(self, data):
         sql_delete_inv_detail = f"""DELETE FROM trans_inventory_detail 
-        WHERE company_id = {data['company_id']} AND cabang_id = {data['cabang_id']} AND produk_id = {data['produk_id']}"""
+        WHERE company_id = {data['company_id']} AND cabang_id = {data['cabang_id']} AND produk_id IN(
+            SELECT produk_id
+            FROM trans_inventory_subsidiary_sales_order 
+			WHERE id_trans = '{data['id_trans']}'
+        )"""
 
-        print("\n\n\n\n\n")
-        print("Delete Inventory Detail")
-        print(sql_delete_inv_detail)
-        print("\n\n\n\n\n")
+        # print("\n\n\n\n\n")
+        # print("Delete Inventory Detail")
+        # print(sql_delete_inv_detail)
+        # print("\n\n\n\n\n")
 
         return sql_delete_inv_detail
 
     def insert_inventory_detail(self, data):
-        data_inv_detail_out = {
-            "produk_id": self.detail_data_mutasi["produk_id"],
-            "company_id": self.detail_data_mutasi["company_id"],
-            "cabang_id": self.detail_data_mutasi["cabang_id"],
-            "qty": int(self.detail_data_mutasi["qty"]),
-            "harga_satuan": int(self.detail_data_mutasi["harga_satuan"]),
-            "harga_total": int(self.detail_data_mutasi["harga_total"]),
-            "updateindb": datetime.today(),
-            "userupdate": auth.AuthAction.get_data_params("username"),
-        }
-        print("\n\n\n\n\n")
-        print("Inventory Detail")
-        # print(data_inv_detail_out)
-        print("\n\n\n\n\n")
+        # data_inv_detail_out = {
+        #     "produk_id": self.detail_data_mutasi["produk_id"],
+        #     "company_id": self.detail_data_mutasi["company_id"],
+        #     "cabang_id": self.detail_data_mutasi["cabang_id"],
+        #     "qty": int(self.detail_data_mutasi["qty"]),
+        #     "harga_satuan": int(self.detail_data_mutasi["harga_satuan"]),
+        #     "harga_total": int(self.detail_data_mutasi["harga_total"]),
+        #     "updateindb": datetime.today(),
+        #     "userupdate": auth.AuthAction.get_data_params("username"),
+        # }
+        # print("\n\n\n\n\n")
+        # print("Inventory Detail")
+        # # print(data_inv_detail_out)
+        # print("\n\n\n\n\n")
 
-        sql_insert_inv_detail_out = f"""insert into trans_inventory_detail ( "produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate") 
-        SELECT  "produk_id",
-                "company_id",
-                "cabang_id", 
-                "qty_in" - "qty_out" as qty,
+        sql_insert_inv_detail_out = f"""insert into trans_inventory_detail (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,updateindb,userupdate) 
+        SELECT  produk_id,
+                company_id,
+                cabang_id, 
+                qty_in - qty_out as qty,
                 CASE 
-                                WHEN (qty_in - qty_out) = 0 THEN 0
-                                ELSE ROUND((ht_in - ht_out) / (qty_in - qty_out), 2)
-                                END as harga_satuan,
-                                ht_in - ht_out as harga_total,
+                  WHEN (qty_in - qty_out) = 0 THEN 0
+                  ELSE ROUND((ht_in - ht_out) / (qty_in - qty_out), 2)
+                 END as harga_satuan,
+                ht_in - ht_out as harga_total,
                 '{datetime.today()}', '{auth.AuthAction.get_data_params("username")}'
                 FROM (
                 SELECT
-                "produk_id",
-                "company_id",
-                "cabang_id",
+                produk_id,
+                company_id,
+                cabang_id,
                 SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END) qty_in,
                 SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END) qty_out,
                 SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END) ht_in,
@@ -546,13 +632,18 @@ class c_subsidiary_inventory_sales_order_release(object):
                 FROM
                 trans_inventory_detail_mutasi 
                 WHERE
-                produk_id = {self.detail_data_mutasi["produk_id"]} and company_id = {self.detail_data_mutasi["company_id"]} and cabang_id = {self.detail_data_mutasi["cabang_id"]}
+                produk_id IN (
+                	SELECT produk_id
+					FROM trans_inventory_subsidiary_sales_order 
+					WHERE id_trans = '{data["id_trans"]}'
+                )
+                and company_id = {self.detail_data_mutasi["company_id"]} 
+                and cabang_id = {self.detail_data_mutasi["cabang_id"]}
                 GROUP BY
-                "produk_id",
-                "company_id",
-                "cabang_id"
-                ) aa
-        """
+                produk_id,
+                company_id,
+                cabang_id
+                ) aa"""
 
         # sql_insert_inv_detail_out = self.db.genStrInsertSingleObject(
         #     data_inv_detail_out, "trans_inventory_detail"
@@ -571,7 +662,7 @@ class c_subsidiary_inventory_sales_order_release(object):
 
         self.data_kode_do = data_kode_do
 
-        sql_inv_sales_order = f"""SELECT * FROM trans_inventory_subsidiary_sales_order WHERE id_trans = '{data['id_trans']}'"""
+        sql_inv_sales_order = f"""SELECT * FROM trans_inventory_subsidiary_sales_order_header WHERE id_trans = '{data['id_trans']}'"""
         result_inv_sales_order = await self.db.executeToDict(sql_inv_sales_order)
         sales_order = result_inv_sales_order[0]
         self.sales_order = sales_order
@@ -609,30 +700,33 @@ class c_subsidiary_inventory_sales_order_release(object):
         new_date = tanggal + timedelta(days=7)
         id_trans_md5 = hashlib.md5(data_kode_iv["id_trans"].encode()).hexdigest()
 
+        print("\n\n")
+        print(self.sales_order)
+        print("\n\n")
+
         if int(self.sales_order["id_pembayaran"]) == 1:
             new_date = tanggal + timedelta(days=1)
 
         data_invoice = {
+            "id_trans": data_kode_iv["id_trans"],
             "updateindb": datetime.today(),
             "userupdate": auth.AuthAction.get_data_params("username"),
             "status_release": False,
-            "id_trans": data_kode_iv["id_trans"],
             "tanggal_invoice": tanggal,
             "id_trans_sales_order": self.sales_order["id_trans"],
             "id_trans_delivery_order": self.data_kode_do["id_trans"],
             "status_invoice": True,
-            "md5_file": id_trans_md5,
-            "tanggal_due_date": new_date,
             "no_urut": data_kode_iv["no_urut"],
-            "produk_id": self.sales_order["produk_id"],
+            "tanggal_due_date": new_date,
             "amount": self.sales_order["harga_total"],
-            "amount_ppn": self.sales_order["ppn_value"],
-            "amount_pph": self.sales_order["pph_22_value"],
+            "amount_ppn": self.sales_order["total_ppn"],
+            "amount_pph": self.sales_order["total_pph"],
+            "md5_file": id_trans_md5,
             "amount_total": self.sales_order["harga_total_ppn_pph"],
             "amount_total_outstanding": self.sales_order["harga_total_ppn_pph"],
             "customer_id": self.sales_order["customer_id"],
-            "qty": self.sales_order["qty"],
             "id_pembayaran": self.sales_order["id_pembayaran"],
+            "biaya_admin": self.sales_order["biaya_admin"],
         }
 
         sql_insert_invoice = self.db.genStrInsertSingleObject(

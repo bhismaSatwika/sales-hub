@@ -50,8 +50,8 @@ class c_holding_inventory_transfer(object):
                     aa.harga_total,
                     (CASE 
                         WHEN aa.status_release = true
-                        THEN 'release'
-                    ELSE 'draft'
+                        THEN 'Release'
+                    ELSE 'Draft'
                     END) as ket_status_release,
                     aa.status_release,
                     aa.tanggal,

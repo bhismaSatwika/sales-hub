@@ -1,5 +1,6 @@
 from datetime import datetime
 import json
+from typing import Optional
 from fastapi import HTTPException, Query, Request
 from library import *
 import os
@@ -15,8 +16,8 @@ class c_master_sales_price(object):
     async def read(
         self, orderby, limit, offset, filter, filter_other="", filter_other_conj=""
     ):
-        if orderby == None or orderby == '':
-            orderby = "id_price ASC"
+        if orderby == None or orderby == "":
+            orderby = "updateindb desc"
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
         )
@@ -32,8 +33,8 @@ class c_master_sales_price(object):
                     aa.status_aktif,
                     (CASE 
                     WHEN aa.status_release = true
-                        THEN 'release'
-                        ELSE 'draft'
+                        THEN 'Release'
+                        ELSE 'Draft'
                     END) as ket_status_release,
                     bb.id_produk as produk_id,
                     bb.nama_produk,
@@ -44,7 +45,9 @@ class c_master_sales_price(object):
                     ROW_NUMBER ( ) OVER ( ORDER BY id_price DESC ) AS nomor_urut,
                     bb.id_produk,
                     cc.id_company,
-                    dd.id_cabang
+                    dd.id_cabang,
+                    aa.order_type,
+                    aa.updateindb
                 FROM master_sales_price aa
                 LEFT JOIN master_produk bb ON aa.id_produk = bb.id_produk
                 LEFT JOIN master_company cc ON aa.id_company = cc.id_company
@@ -147,60 +150,91 @@ class c_master_sales_price(object):
         # print(sql)
         return data
 
-    async def get_price(self, id_company, id_cabang, id_produk):
-        sql = f"""SELECT price FROM master_sales_price WHERE id_company = {id_company} AND id_cabang = {id_cabang} AND id_produk = {id_produk} AND status_release = 't' AND status_aktif = 't'"""
+    async def get_price(self, id_company, id_cabang, id_produk, oder_type="direct"):
+        if oder_type == None:
+            oder_type = "direct"
+        sql = f"""SELECT
+                    (CASE 
+                    WHEN aa.harga_satuan IS NULL
+                    THEN 0
+                    ELSE aa.harga_satuan
+                    END) as harga_satuan_hpp,
+                    (CASE
+                    WHEN bb.price IS NULL
+                    THEN 0
+                    ELSE bb.price
+                    END) as price
+                FROM
+                    trans_inventory_detail aa 
+                    LEFT JOIN master_sales_price bb
+                    ON aa.company_id = bb.id_company
+                    AND aa.cabang_id = bb.id_cabang
+                    AND aa.produk_id = bb.id_produk 
+                WHERE
+                    aa.company_id = {id_company}
+                    AND aa.cabang_id = {id_cabang} 
+                    AND aa.produk_id = {id_produk} 
+                    AND bb.order_type = '{oder_type}'
+                    AND bb.status_release = 't' 
+                    AND bb.status_aktif = 't'"""
+        print(sql)
         try:
             result = await self.db.executeToDict(sql)
             # print(result)
             if len(result) == 0:
-                return 0
+                return {"price": 0, "harga_satuan_hpp": 0}
             message = {"status": "success"}
         except Exception as e:
             message = {"status": "error"}
             raise HTTPException(400, ("The error is: ", str(e)))
-            
-        return result[0]["price"]
-    
+
+        return result[0]
+
     async def release(self, data_where):
-    
+
         sql_unrelease = f"""UPDATE master_sales_price SET status_release = 'false'
             (SELECT id_produk,id_cabang,id_company FROM master_sales_price 
             WHERE id_price = '{data_where['id_price']}') aa
             WHERE master_sales_price.id_produk = aa.id_produk 
             AND master_sales_price.id_cabang = aa.id_cabang 
             AND master_sales_price.id_company = aa.id_company"""
-        
+
         sql_release = f"""UPDATE master_sales_price SET status_release = 'true'
             WHERE id_price = '{data_where['id_price']}'"""
         try:
-            trans = await self.db.executeTrans([sql_unrelease,sql_release])
+            trans = await self.db.executeTrans([sql_unrelease, sql_release])
         except Exception as e:
             print(str(e))
             raise HTTPException(400, ("error ketika release sales prices: ", str(e)))
-        
-    
+
     async def aktif_deaktif(self, data, data_where):
         sqls = []
         sql_aktif = f"""UPDATE master_sales_price SET status_aktif = 'false'
             WHERE id_price = '{data_where['id_price']}'"""
-        
-        if data['status_aktif'] == True:
-            sql_unaktif = f"""UPDATE master_sales_price SET status_aktif = 'false'
-                (SELECT id_cabang,id_company FROM master_sales_price 
+
+        if data["status_aktif"] == True:
+            sql_unaktif = f"""UPDATE master_sales_price SET status_aktif = 'false' FROM 
+                (SELECT id_cabang, id_company, id_produk, order_type FROM master_sales_price
                 WHERE id_price = '{data_where['id_price']}') aa
-                WHERE master_sales_price.id_produk = aa.id_produk 
-                AND master_sales_price.id_cabang = aa.id_cabang 
-                AND master_sales_price.id_company = aa.id_company"""
-            
+                WHERE master_sales_price.id_produk = aa.id_produk
+                AND master_sales_price.id_cabang = aa.id_cabang
+                AND master_sales_price.id_company = aa.id_company
+                AND master_sales_price.order_type = aa.order_type"""
+
             sqls.append(sql_unaktif)
-        
+
             sql_aktif = f"""UPDATE master_sales_price SET status_aktif = 'true'
             WHERE id_price = '{data_where['id_price']}'"""
-        
+
         sqls.append(sql_aktif)
+        print(sqls)
 
         try:
-            trans = await self.db.executeTrans([sqls])
+            trans = await self.db.executeTrans(sqls)
+            if trans["status"] == False:
+                raise HTTPException(
+                    400, ("error ketika aktif sales price: ", str(trans["detail"]))
+                )
         except Exception as e:
             print(str(e))
             raise HTTPException(400, ("error ketika aktif sales price: ", str(e)))
@@ -265,9 +299,10 @@ async def get_atribut_price(param: object = Query(None, alias="param")):
 
 
 @app.get("/api/f_master/c_master_sales_price/get_price")
-async def get_price(id_company, id_cabang, id_produk):
+async def get_price(id_company, id_cabang, id_produk, order_type="direct"):
     ob_data = c_master_sales_price()
-    return await ob_data.get_price(id_company, id_cabang, id_produk)
+    print(order_type)
+    return await ob_data.get_price(id_company, id_cabang, id_produk, order_type)
 
 
 @app.post("/api/f_master/c_master_sales_price/release")
@@ -276,9 +311,10 @@ async def release(request: Request):
     ob_data = c_master_sales_price()
     return await ob_data.release(data["update_where"])
 
+
 @app.post("/api/f_master/c_master_sales_price/aktif_deaktif")
 async def aktif_deaktif(request: Request):
     data = await request.json()
+    print(data)
     ob_data = c_master_sales_price()
     return await ob_data.aktif_deaktif(data["update_data"], data["update_where"])
-

@@ -15,7 +15,7 @@ class c_sales_report(object):
     def __init__(self):
         self.db = Db()
 
-    async def sales_report(self, company_id, cabang_id, produk_id, tanggal):
+    async def sales_report_new(self, company_id, cabang_id, produk_id, tanggal):
         if (
             company_id != None
             and cabang_id != None
@@ -27,6 +27,24 @@ class c_sales_report(object):
 
             sql_product = f"""SELECT nama_produk from master_produk WHERE id_produk = {produk_id}"""
 
+    async def sales_report(self, company_id, cabang_id, produk_id, tanggal):
+        if (
+            company_id != None
+            and cabang_id != None
+            and produk_id != None
+            and tanggal != None
+        ):
+
+            filter_header = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND bb.produk_id = {produk_id} AND tanggal_invoice <= '{tanggal}'"""
+            filter_detail = f"""WHERE bb.company_id = {company_id} AND bb.cabang_id = {cabang_id} AND aa.produk_id = {produk_id} AND aa.tanggal_invoice <= '{tanggal}' and ee.status_release = true"""
+
+            if company_id == 2 and cabang_id == 11:
+                filter_header = f"""WHERE company_id = {company_id} AND bb.produk_id = {produk_id} AND tanggal_invoice <= '{tanggal}'"""
+
+                filter_detail = f"""WHERE ee.company_id = {company_id} AND aa.produk_id = {produk_id} AND aa.tanggal_invoice <= '{tanggal}' and ee.status_release = true"""
+
+            sql_product = f"""SELECT nama_produk from master_produk WHERE id_produk = {produk_id}"""
+
         sql_header = (
             f"""SELECT *,
                         round(sales_total/sales_qty,2)::FLOAT as harga_sat_penj,
@@ -35,7 +53,7 @@ class c_sales_report(object):
                     round((sales_total-hpp)/sales_total*100,2)::FLOAT margin_percent
                     FROM
                     (SELECT
-                        sum(aa.amount_total) sales_total,
+                        sum(aa.amount_total) - sum(bb.biaya_admin) sales_total,
                         sum(aa.qty) sales_qty,
                         sum(bb.harga_total_hpp) as hpp
                     FROM trans_inventory_subsidiary_invoice aa

@@ -6,9 +6,12 @@ import qrcode
 
 
 class PDF(FPDF):
-    def __init__(self, data, orientation="P", unit="mm", format="A4"):
+    def __init__(
+        self, data_header, data_detail, orientation="P", unit="mm", format="A4"
+    ):
         super().__init__(orientation, unit, format)
-        self.data = data
+        self.data_header = data_header
+        self.data_detail = data_detail
 
     def header(self):
         y = self.get_y()
@@ -76,7 +79,7 @@ class PDF(FPDF):
         self.top_data()
         self.table_data()
         self.bottom()
-        filename = f"files/invoice_delivery_order/{self.data['id_trans']}.pdf"
+        filename = f"files/invoice_delivery_order/{self.data_header['id_trans']}.pdf"
         self.output(filename)
         print("PDF GENERATED.")
 
@@ -106,7 +109,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=5,
-            text=self.data["id_trans"],
+            text=self.data_header["id_trans"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -116,7 +119,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=6,
-            text=self.convert_value(self.data["tanggal_do"]),
+            text=self.convert_value(self.data_header["tanggal_do"]),
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -143,7 +146,7 @@ class PDF(FPDF):
         self.cell(
             w=w / 2,
             h=4,
-            text=self.data["nama_customer"],
+            text=self.data_header["nama_customer"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -153,7 +156,7 @@ class PDF(FPDF):
         self.cell(
             w=50,
             h=4,
-            text=self.data["alamat"],
+            text=self.data_header["alamat"],
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -163,7 +166,7 @@ class PDF(FPDF):
         self.cell(
             w=50,
             h=4,
-            text="Telp/No.Hp : " + str(self.data["no_hp"]),
+            text="Telp/No.Hp : " + str(self.data_header["no_hp"]),
             align="L",
             new_x="LMARGIN",
             new_y="NEXT",
@@ -185,11 +188,16 @@ class PDF(FPDF):
             "Quantity",
             "Satuan",
         ]
-        keys = [
-            self.convert_value(self.data["nama_produk"]),
-            self.convert_value(self.data["qty"]),
-            self.convert_value(self.data["uom_satuan"]),
-        ]
+        rows = []
+
+        if self.data_detail != []:
+            headers = self.data_detail[0].keys()
+            header_list = list(headers)
+            rows = [[item[key] for key in header_list] for item in self.data_detail]
+        else:
+            rows = [[]]
+
+        body_data = rows
 
         self.line(
             x1=left_margin + 5,
@@ -197,7 +205,7 @@ class PDF(FPDF):
             x2=self.w - self.r_margin - 5,
             y2=self.get_y(),
         )
-        self.set_x(left_margin)
+        self.set_x(left_margin + 5)
         with self.table(
             col_widths=(
                 30,
@@ -205,7 +213,7 @@ class PDF(FPDF):
                 30,
             ),
             borders_layout="HORIZONTAL_LINES",
-            width=self.w - self.l_margin - self.r_margin,
+            width=self.w - self.l_margin - self.r_margin - 5,
             align="L",
             text_align="C",
             first_row_as_headings=False,
@@ -229,13 +237,16 @@ class PDF(FPDF):
                 30,
             ),
             borders_layout="HORIZONTAL_LINES",
-            width=self.w - self.l_margin - self.r_margin,
+            width=self.w - self.l_margin - self.r_margin - 5,
             align="L",
             text_align="C",
             first_row_as_headings=False,
         ) as table:
-            for key in [keys]:
-                table.row(key)
+            for data_row in body_data:
+                row = table.row()
+                for datum in data_row:
+                    a = self.convert_value(datum)
+                    row.cell(a, padding=1)
 
         self.line(
             x1=left_margin + 5,
@@ -247,25 +258,6 @@ class PDF(FPDF):
         self.ln(5)
 
     def bottom(self):
-        # qr = qrcode.QRCode(
-        #     version=1,
-        #     error_correction=qrcode.constants.ERROR_CORRECT_L,
-        #     box_size=10,
-        #     border=4,
-        # )
-        # qr.add_data("Some data here")  # Replace with your data (e.g., URL)
-        # qr.make(fit=True)
-        # img = qr.make_image(fill_color="black", back_color="white")
-
-        # # Save QR code to a BytesIO object
-        # img_buffer = BytesIO()
-        # img.save(img_buffer, format="PNG")
-        # img_buffer.seek(0)  # Rewind buffer to the beginning
-        # y = self.get_y()
-        # # Add QR code image to the footer
-        # self.image(
-        #     img_buffer, x=self.w - self.r_margin - 60, y=self.get_y() + 80, w=40, h=40
-        # )
         self.set_font("Poppins", "", 9)
         page_width = self.w
         left_margin = self.l_margin

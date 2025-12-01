@@ -25,6 +25,7 @@ class c_subsidiary_inventory_delivery_order(object):
         limit,
         offset,
         filter,
+        order_type,
         company_id=None,
         cabang_id=None,
         filter_other="",
@@ -56,154 +57,45 @@ class c_subsidiary_inventory_delivery_order(object):
         )
 
         sql = (
-            f"""SELECT * FROM (
-                        SELECT 
-                        aa.id_trans,
-						aa.updateindb,
-						aa.userupdate,
-							(CASE 
-                            WHEN aa.status_release = true
-                            THEN 'release'
-                            ELSE ''
-                        END) as ket_status_release,
-                        aa.status_release,
-						aa.tanggal_do,
-						aa.file_upload,
-						aa.id_trans_sales_order,
-					    cc.id_produk as produk_id,
-                        cc.nama_produk || '(' || ee.uom_satuan || ')' AS nama_produk,
-						dd.id_kategori as kategori_id,
-                        dd.kategori,
-						ee.id_uom_satuan,
-                        ee.uom_satuan,
-						ff.id_company as company_id,
-                        ff.company_name,
-                        gg.id_cabang as cabang_id,
-                        gg.cabang_name,
-						bb.qty as qty_so,
-                        bb.harga_satuan as harga_satuan_so,
-                        bb.harga_total as harga_total_so,
-                        (CASE 
-                            WHEN aa.status_release = true
-                            THEN 'release'
-                            ELSE ''
-                        END) as ket_status_release_so,
-                        aa.status_release as status_release_so,
-						aa.file_upload as file_upload_so,
-						hh.id_customer as customer_id,
-						hh.nama_customer,
-						bb.ppn_percent,
-						bb.ppn_value,
-						bb.pph_22_percent,
-						bb.pph_22_value,
-						bb.harga_total_ppn_pph,
-                        hh.id_customer,
-						hh.nama_customer,
-						hh.alamat,
-						hh.alamat,
-						hh.no_ktp,
-						hh.no_hp,
-						hh.email,
-						ii.kode_prov,
-						ii.nama as nama_prov,
-						jj.kode_kotakab,
-						jj.nama as nama_kotakab,
-						kk.kode_kec,
-						kk.nama as nama_kec,
-						ll.kode_kel,
-						ll.nama as nama_kel,
-                        cc.ppn,
-                        cc.pph22
-                    FROM trans_inventory_subsidiary_delivery_order aa
-					LEFT JOIN trans_inventory_subsidiary_sales_order bb ON aa.id_trans_sales_order = bb.id_trans
-				    LEFT JOIN master_produk cc ON bb.produk_id = cc.id_produk
-					LEFT JOIN master_produk_kategori dd ON cc.kategori_produk = dd.id_kategori
-					LEFT JOIN master_produk_uom_satuan ee ON cc.uom_satuan = ee.id_uom_satuan
-					LEFT JOIN master_company ff ON bb.company_id = ff.id_company
-					LEFT JOIN master_company_cabang gg ON bb.cabang_id = gg.id_cabang AND bb.company_id = gg.id_company
-				    LEFT JOIN master_customer hh ON bb.customer_id = hh.id_customer
-					LEFT JOIN master_provinsi ii ON hh.kode_prov = ii.kode_prov
-					LEFT JOIN master_kotakab jj ON hh.kode_prov = jj.kode_prov AND hh.kode_kotakab = jj.kode_kotakab
-					LEFT JOIN master_kecamatan kk ON hh.kode_prov = kk.kode_prov AND hh.kode_kotakab = kk.kode_kotakab AND hh.kode_kec = kk.kode_kec
-					LEFT JOIN master_kelurahan ll ON hh.kode_prov = ll.kode_prov AND hh.kode_kotakab = ll.kode_kotakab AND hh.kode_kec = ll.kode_kec AND hh.kode_kel = ll.kode_kel
-                ) zz """
+            f"""SELECT
+            * 
+            FROM
+            (
+            SELECT A
+                .id_trans,
+                id_trans_sales_order,
+                total_product,
+                A.updateindb,
+                C.company_id,
+                C.cabang_id
+            FROM
+                trans_inventory_subsidiary_delivery_order
+                A LEFT JOIN ( SELECT id_trans, COUNT ( produk_id ) AS total_product FROM trans_inventory_subsidiary_sales_order GROUP BY id_trans ) B ON A.id_trans_sales_order = B.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header C on C.id_trans = A.id_trans_sales_order
+                WHERE C.order_type = '{order_type}'
+            ) ZZ"""
             + str_clause
         )
 
         print(sql)
 
         sql_count = (
-            f"""SELECT count(*) count FROM (
-                    SELECT 
-                        aa.id_trans,
-						aa.updateindb,
-						aa.userupdate,
-							(CASE 
-                            WHEN aa.status_release = true
-                            THEN 'release'
-                            ELSE 'draft'
-                        END) as ket_status_release,
-                        aa.status_release,
-						aa.tanggal_do,
-						aa.file_upload,
-						aa.id_trans_sales_order,
-					    cc.id_produk as produk_id,
-                        cc.nama_produk || '(' || ee.uom_satuan || ')' AS nama_produk,
-						dd.id_kategori as kategori_id,
-                        dd.kategori,
-						ee.id_uom_satuan,
-                        ee.uom_satuan,
-						ff.id_company as company_id,
-                        ff.company_name,
-                        gg.id_cabang as cabang_id,
-                        gg.cabang_name,
-						bb.qty as qty_so,
-                        bb.harga_satuan as harga_satuan_so,
-                        bb.harga_total as harga_total_so,
-                        (CASE 
-                            WHEN aa.status_release = true
-                            THEN 'release'
-                            ELSE 'draft'
-                        END) as ket_status_release_so,
-                        aa.status_release as status_release_so,
-						aa.file_upload as file_upload_so,
-						hh.id_customer as customer_id,
-						hh.nama_customer,
-						bb.ppn_percent,
-						bb.ppn_value,
-						bb.pph_22_percent,
-						bb.pph_22_value,
-						bb.harga_total_ppn_pph,
-                        hh.id_customer,
-						hh.nama_customer,
-						hh.alamat,
-						hh.alamat,
-						hh.no_ktp,
-						hh.no_hp,
-						hh.email,
-						ii.kode_prov,
-						ii.nama as nama_prov,
-						jj.kode_kotakab,
-						jj.nama as nama_kotakab,
-						kk.kode_kec,
-						kk.nama as nama_kec,
-						ll.kode_kel,
-						ll.nama as nama_kel,
-                        cc.ppn,
-                        cc.pph22
-                    FROM trans_inventory_subsidiary_delivery_order aa
-					LEFT JOIN trans_inventory_subsidiary_sales_order bb ON aa.id_trans_sales_order = bb.id_trans
-				    LEFT JOIN master_produk cc ON bb.produk_id = cc.id_produk
-					LEFT JOIN master_produk_kategori dd ON cc.kategori_produk = dd.id_kategori
-					LEFT JOIN master_produk_uom_satuan ee ON cc.uom_satuan = ee.id_uom_satuan
-					LEFT JOIN master_company ff ON bb.company_id = ff.id_company
-					LEFT JOIN master_company_cabang gg ON bb.cabang_id = gg.id_cabang AND bb.company_id = gg.id_company
-				    LEFT JOIN master_customer hh ON bb.customer_id = hh.id_customer
-					LEFT JOIN master_provinsi ii ON hh.kode_prov = ii.kode_prov
-					LEFT JOIN master_kotakab jj ON hh.kode_prov = jj.kode_prov AND hh.kode_kotakab = jj.kode_kotakab
-					LEFT JOIN master_kecamatan kk ON hh.kode_prov = kk.kode_prov AND hh.kode_kotakab = kk.kode_kotakab AND hh.kode_kec = kk.kode_kec
-					LEFT JOIN master_kelurahan ll ON hh.kode_prov = ll.kode_prov AND hh.kode_kotakab = ll.kode_kotakab AND hh.kode_kec = ll.kode_kec AND hh.kode_kel = ll.kode_kel
-                ) zz """
+            f"""SELECT
+            COUNT(*) as count 
+            FROM
+            (
+            SELECT A
+                .id_trans,
+                id_trans_sales_order,
+                total_product,
+                C.company_id,
+                C.cabang_id
+            FROM
+                trans_inventory_subsidiary_delivery_order
+                A LEFT JOIN ( SELECT id_trans, COUNT ( produk_id ) AS total_product FROM trans_inventory_subsidiary_sales_order GROUP BY id_trans ) B ON A.id_trans_sales_order = B.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header C on C.id_trans = A.id_trans_sales_order
+                WHERE C.order_type = '{order_type}'
+            ) ZZ"""
             + str_clause_count
         )
 
@@ -469,10 +361,11 @@ async def read_history(
     filter: str = Query(None, alias="$filter"),
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
+    order_type: Optional[str] = Query("direct", alias="order_type"),
 ):
     ob_data = c_subsidiary_inventory_delivery_order()
     return await ob_data.read_history(
-        orderby, limit, offset, filter, company_id, cabang_id
+        orderby, limit, offset, filter, order_type, company_id, cabang_id
     )
 
 

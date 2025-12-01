@@ -189,7 +189,6 @@ class c_salesman_report(object):
         FROM
         trans_inventory_subsidiary_invoice
         A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = b.id_trans
-        LEFT JOIN master_produk C ON A.produk_id = C.id_produk
         LEFT JOIN master_customer D ON B.customer_id = D.id_customer 
         WHERE
         {where}
@@ -204,7 +203,6 @@ class c_salesman_report(object):
         FROM
         trans_inventory_subsidiary_invoice
         A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = b.id_trans
-        LEFT JOIN master_produk C ON A.produk_id = C.id_produk
         LEFT JOIN master_customer D ON B.customer_id = D.id_customer 
         WHERE
         {where}

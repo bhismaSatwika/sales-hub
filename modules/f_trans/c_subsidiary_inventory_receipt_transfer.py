@@ -63,8 +63,8 @@ class c_subsidiary_inventory_receipt_transfer(object):
                         cc.cabang_name,
                         (CASE 
                             WHEN aa.status_release = true
-                            THEN 'release'
-                        ELSE 'draft'
+                            THEN 'Release'
+                        ELSE 'Draft'
                         END) as ket_status_release,
                         aa.status_release,
                         aa.tanggal,
@@ -111,7 +111,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                         cc.cabang_name,
                         (CASE 
                             WHEN aa.status_release = true
-                            THEN 'release'
+                            THEN 'Release'
                         ELSE '-'
                         END) as ket_status_release,
                         aa.status_release,
@@ -196,8 +196,8 @@ class c_subsidiary_inventory_receipt_transfer(object):
                         cc.cabang_name,
                         (CASE 
                             WHEN aa.status_release = true
-                            THEN 'release'
-                        ELSE 'draft'
+                            THEN 'Release'
+                        ELSE 'Draft'
                         END) as ket_status_release,
                         aa.status_release,
                         aa.tanggal,
@@ -242,8 +242,8 @@ class c_subsidiary_inventory_receipt_transfer(object):
                         cc.cabang_name,
                         (CASE 
                             WHEN aa.status_release = true
-                            THEN 'release'
-                        ELSE 'draft'
+                            THEN 'Release'
+                        ELSE 'Draft'
                         END) as ket_status_release,
                         aa.status_release,
                         aa.tanggal,

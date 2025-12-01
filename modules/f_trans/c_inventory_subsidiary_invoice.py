@@ -25,6 +25,7 @@ class c_inventory_subsidiary_invoice(object):
         limit,
         offset,
         filter,
+        order_type,
         company_id=None,
         cabang_id=None,
         filter_other="",
@@ -56,104 +57,44 @@ class c_inventory_subsidiary_invoice(object):
         )
 
         sql = (
-            f"""SELECT * FROM (
-                SELECT	
-                    aa.id_trans,
-                    aa.updateindb,
-                    aa.userupdate,
-                    ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
-                    aa.status_release,
-                    aa.tanggal_invoice,
-                    aa.id_trans_sales_order,
-                    aa.id_trans_delivery_order,
-                    aa.status_invoice,
-                    ( CASE WHEN aa.status_invoice = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_invoice,
-                    aa.id_sales_report,
-                    aa.tanggal_due_date,
-                    aa.amount,
-                    aa.amount_ppn,
-                    aa.amount_pph,
-                    aa.amount_total,
-                    aa.complete_payment,
-                    aa.amount_total_outstanding,
-                    aa.customer_id,
-                    aa.produk_id,
-                    dd.nama_produk,
-                    aa.qty,
-                    bb.company_id,
-                    bb.cabang_id,
-                    dd.ppn,
-                    dd.pph22,
-                    jj.username as nik,
-					jj.name as nama_sales,
-                    aa.id_pembayaran,
-                    kk.pembayaran,
-                    aa.md5_file,
-                    ii.nama_customer
-                FROM
-                    trans_inventory_subsidiary_invoice aa
-                    LEFT JOIN trans_inventory_subsidiary_sales_order bb ON aa.id_trans_sales_order = bb.id_trans
-                    LEFT JOIN trans_inventory_subsidiary_delivery_order cc ON aa.id_trans_delivery_order = cc.id_trans
-                    LEFT JOIN master_produk dd ON aa.produk_id = dd.id_produk
-                    LEFT JOIN master_produk_kategori ee ON dd.kategori_produk = ee.id_kategori
-                    LEFT JOIN master_produk_uom_satuan ff ON dd.uom_satuan = ff.id_uom_satuan
-                    LEFT JOIN master_company gg ON bb.company_id = gg.id_company
-                    LEFT JOIN master_company_cabang hh ON bb.cabang_id = hh.id_cabang AND bb.company_id = hh.id_company
-                    LEFT JOIN master_customer ii ON aa.customer_id = ii.id_customer
-                    LEFT JOIN (select * from master_user where is_salesman = 't') jj ON aa.salesman = jj.id_user
-                    LEFT JOIN master_jenis_pembayaran kk ON aa.id_pembayaran = kk.id_pembayaran
-                ) zz"""
+            f"""SELECT
+            * 
+            FROM
+            (
+            SELECT A
+                .id_trans,
+                id_trans_sales_order,
+                total_product,
+                A.updateindb,
+                C.company_id,
+                C.cabang_id
+            FROM
+                trans_inventory_subsidiary_invoice
+                A LEFT JOIN ( SELECT id_trans, COUNT ( produk_id ) AS total_product FROM trans_inventory_subsidiary_sales_order GROUP BY id_trans ) B ON A.id_trans_sales_order = B.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header C on C.id_trans = A.id_trans_sales_order
+                WHERE C.order_type = '{order_type}'
+            ) ZZ"""
             + str_clause
         )
+        print(sql)
 
         sql_count = (
-            f"""SELECT count(*) as count FROM (
-                SELECT	
-                    aa.id_trans,
-                    aa.updateindb,
-                    aa.userupdate,
-                    ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
-                    aa.status_release,
-                    aa.tanggal_invoice,
-                    aa.id_trans_sales_order,
-                    aa.id_trans_delivery_order,
-                    aa.status_invoice,
-                    ( CASE WHEN aa.status_invoice = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_invoice,
-                    aa.id_sales_report,
-                    aa.tanggal_due_date,
-                    aa.amount,
-                    aa.amount_ppn,
-                    aa.amount_pph,
-                    aa.amount_total,
-                    aa.complete_payment,
-                    aa.amount_total_outstanding,
-                    aa.customer_id,
-                    aa.produk_id,
-                    dd.nama_produk,
-                    aa.qty,
-                    dd.ppn,
-                    dd.pph22,
-                    jj.username as nik,
-					jj.name as nama_sales,
-                    aa.id_pembayaran,
-                    aa.id_pembayaran,
-                    kk.pembayaran,
-                    bb.company_id,
-                    bb.cabang_id,
-                    aa.md5_file
-                FROM
-                    trans_inventory_subsidiary_invoice aa
-                    LEFT JOIN trans_inventory_subsidiary_sales_order bb ON aa.id_trans_sales_order = bb.id_trans
-                    LEFT JOIN trans_inventory_subsidiary_delivery_order cc ON aa.id_trans_delivery_order = cc.id_trans
-                    LEFT JOIN master_produk dd ON aa.produk_id = dd.id_produk
-                    LEFT JOIN master_produk_kategori ee ON dd.kategori_produk = ee.id_kategori
-                    LEFT JOIN master_produk_uom_satuan ff ON dd.uom_satuan = ff.id_uom_satuan
-                    LEFT JOIN master_company gg ON bb.company_id = gg.id_company
-                    LEFT JOIN master_company_cabang hh ON bb.cabang_id = hh.id_cabang AND bb.company_id = hh.id_company
-                    LEFT JOIN master_customer ii ON aa.customer_id = ii.id_customer
-                    LEFT JOIN (select * from master_user where is_salesman = 't') jj ON aa.salesman = jj.id_user
-                    LEFT JOIN master_jenis_pembayaran kk ON aa.id_pembayaran = kk.id_pembayaran
-                ) zz"""
+            f"""SELECT
+            COUNT(*) 
+            FROM
+            (
+            SELECT A
+                .id_trans,
+                id_trans_sales_order,
+                total_product,
+                C.company_id,
+                C.cabang_id
+            FROM
+                trans_inventory_subsidiary_invoice
+                A LEFT JOIN ( SELECT id_trans, COUNT ( produk_id ) AS total_product FROM trans_inventory_subsidiary_sales_order GROUP BY id_trans ) B ON A.id_trans_sales_order = B.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header C on C.id_trans = A.id_trans_sales_order
+                WHERE C.order_type = '{order_type}'
+            ) ZZ"""
             + str_clause_count
         )
 
@@ -413,9 +354,18 @@ async def read(
     filter: str = Query(None, alias="$filter"),
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
+    order_type: Optional[str] = Query("direct", alias="order_type"),
 ):
     ob_data = c_inventory_subsidiary_invoice()
-    return await ob_data.read(orderby, limit, offset, filter, company_id, cabang_id)
+    return await ob_data.read(
+        orderby,
+        limit,
+        offset,
+        filter,
+        order_type,
+        company_id,
+        cabang_id,
+    )
 
 
 @app.post("/api/f_trans/c_inventory_subsidiary_invoice/create")

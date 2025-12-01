@@ -31,7 +31,7 @@ class c_master_biaya_admin(object):
                     aa.biaya,
                     aa.status_release,
                     aa.status_aktif,
-                    ( CASE WHEN aa.status_release = TRUE THEN 'release' ELSE'draft' END ) AS ket_status_release,
+                    ( CASE WHEN aa.status_release = TRUE THEN 'Release' ELSE'Draft' END ) AS ket_status_release,
                     cc.id_company AS company_id,
                     cc.company_name,
                     dd.id_cabang AS cabang_id,

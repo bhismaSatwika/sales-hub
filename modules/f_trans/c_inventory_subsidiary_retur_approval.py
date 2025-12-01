@@ -46,91 +46,76 @@ class c_inventory_subsidiary_retur_approval(object):
 
         sql = (
             f"""SELECT * FROM (
-                SELECT 
-                    bb.detail_id,
-                    bb.order_approve,
-                    cc.username,
-                    aa.header_id as id_header,
-                    aa.approval_status as id_approval_status_header,
-                    ee.status_name as approval_status_header,
-                    bb.approval_status as id_approval_status_detail,
-                    ff.status_name as approval_status_detail,
-                    dd.id_invoice,
-                    dd.status_release,
-                    dd.tanggal_retur,
-                    dd.company_id as company_id,
-                    hh.company_name,
-                    dd.cabang_id as cabang_id,
-                    gg.id_trans_sales_order,
-                    ii.cabang_name,
-                    gg.customer_id,
-                    jj.nama_customer,
-                    aa.updateindb,
-                    bb.active
-                FROM trans_approval_header aa
-                LEFT JOIN trans_approval_detail bb
-                ON aa.header_id = bb.header_id
-                LEFT JOIN master_approval cc
-                ON bb.master_approval_id = cc.id
-                LEFT JOIN trans_inventory_subsidiary_retur_header dd
-                ON aa.header_id = dd.id_header
-                LEFT JOIN master_approval_status ee
-                ON aa.approval_status = ee.id_status
-                LEFT JOIN master_approval_status ff
-                ON bb.approval_status = ff.id_status
-                LEFT JOIN trans_inventory_subsidiary_invoice gg
-                ON dd.id_invoice = gg.id_trans
-                LEFT JOIN master_company hh
-                ON dd.company_id = hh.id_company
-                LEFT JOIN master_company_cabang ii
-                ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
-                LEFT JOIN master_customer jj
-                ON gg.customer_id = jj.id_customer
+                    SELECT
+                        bb.detail_id,
+                        bb.order_approve,
+                        cc.username,
+                        aa.id_trans AS id_header,
+                        aa.approval_status AS id_approval_status_header,
+                        ee.status_name AS approval_status_header,
+                        bb.approval_status AS id_approval_status_detail,
+                        ff.status_name AS approval_status_detail,
+                        dd.id_invoice,
+                        dd.status_release,
+                        dd.tanggal_retur,
+                        dd.company_id AS company_id,
+                        hh.company_name,
+                        dd.cabang_id AS cabang_id,
+                        gg.id_trans_sales_order,
+                        ii.cabang_name,
+                        gg.customer_id,
+                        jj.nama_customer,
+                        aa.updateindb,
+                        bb.active 
+                    FROM
+                        trans_inventory_subsidiary_sales_order_header aa
+                        LEFT JOIN trans_approval_detail bb ON aa.id_trans = bb.header_id
+                        LEFT JOIN master_approval cc ON bb.master_approval_id = cc.ID 
+                        LEFT JOIN trans_inventory_subsidiary_retur_header dd ON aa.id_trans = dd.id_header
+                        LEFT JOIN master_approval_status ee ON aa.approval_status = ee.id_status
+                        LEFT JOIN master_approval_status ff ON bb.approval_status = ff.id_status
+                        LEFT JOIN trans_inventory_subsidiary_invoice gg ON dd.id_invoice = gg.id_trans
+                        LEFT JOIN master_company hh ON dd.company_id = hh.id_company
+                        LEFT JOIN master_company_cabang ii ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
+                        LEFT JOIN master_customer jj ON gg.customer_id = jj.id_customer
             ) zz """
             + str_clause
         )
 
         sql_count = (
             f"""SELECT COUNT(*) as count FROM (
-                SELECT 
-                    bb.detail_id,
-                    cc.username,
-                    aa.header_id as id_trans,
-                    aa.approval_status as id_approval_status_header,
-                    ee.status_name as approval_status_header,
-                    bb.approval_status as id_approval_status_detail,
-                    ff.status_name as approval_status_detail,
-                    dd.id_invoice,
-                    dd.status_release,
-                    gg.id_trans_sales_order,
-                    dd.tanggal_retur,
-                    dd.company_id as company_id,
-                    hh.company_name,
-                    dd.cabang_id as cabang_id,
-                    ii.cabang_name,
-                    gg.customer_id,
-                    jj.nama_customer,
-                    aa.updateindb,
-                    bb.active
-                FROM trans_approval_header aa
-                LEFT JOIN trans_approval_detail bb
-                ON aa.header_id = bb.header_id
-                LEFT JOIN master_approval cc
-                ON bb.master_approval_id = cc.id
-                LEFT JOIN trans_inventory_subsidiary_retur_header dd
-                ON aa.header_id = dd.id_header
-                LEFT JOIN master_approval_status ee
-                ON aa.approval_status = ee.id_status
-                LEFT JOIN master_approval_status ff
-                ON bb.approval_status = ff.id_status
-                LEFT JOIN trans_inventory_subsidiary_invoice gg
-                ON dd.id_invoice = gg.id_trans
-                LEFT JOIN master_company hh
-                ON dd.company_id = hh.id_company
-                LEFT JOIN master_company_cabang ii
-                ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
-                LEFT JOIN master_customer jj
-                ON gg.customer_id = jj.id_customer
+                    SELECT
+                        bb.detail_id,
+                        bb.order_approve,
+                        cc.username,
+                        aa.id_trans AS id_header,
+                        aa.approval_status AS id_approval_status_header,
+                        ee.status_name AS approval_status_header,
+                        bb.approval_status AS id_approval_status_detail,
+                        ff.status_name AS approval_status_detail,
+                        dd.id_invoice,
+                        dd.status_release,
+                        dd.tanggal_retur,
+                        dd.company_id AS company_id,
+                        hh.company_name,
+                        dd.cabang_id AS cabang_id,
+                        gg.id_trans_sales_order,
+                        ii.cabang_name,
+                        gg.customer_id,
+                        jj.nama_customer,
+                        aa.updateindb,
+                        bb.active 
+                    FROM
+                        trans_inventory_subsidiary_sales_order_header aa
+                        LEFT JOIN trans_approval_detail bb ON aa.id_trans = bb.header_id
+                        LEFT JOIN master_approval cc ON bb.master_approval_id = cc.ID 
+                        LEFT JOIN trans_inventory_subsidiary_retur_header dd ON aa.id_trans = dd.id_header
+                        LEFT JOIN master_approval_status ee ON aa.approval_status = ee.id_status
+                        LEFT JOIN master_approval_status ff ON bb.approval_status = ff.id_status
+                        LEFT JOIN trans_inventory_subsidiary_invoice gg ON dd.id_invoice = gg.id_trans
+                        LEFT JOIN master_company hh ON dd.company_id = hh.id_company
+                        LEFT JOIN master_company_cabang ii ON dd.company_id = ii.id_company AND dd.cabang_id = ii.id_cabang
+                        LEFT JOIN master_customer jj ON gg.customer_id = jj.id_customer
             ) zz """
             + str_clause_count
         )
@@ -176,13 +161,13 @@ class c_inventory_subsidiary_retur_approval(object):
             WHERE detail_id = {data["detail_id"]} and active = true"""
         queries.append(sql_update_status)
 
-        sql_update_status_approval_header = f"""UPDATE trans_approval_header hh
+        sql_update_status_approval_header = f"""UPDATE trans_inventory_subsidiary_sales_order_header hh
                                                     SET approval_status = 3
-                                                    WHERE header_id = '{data["id_retur"]}'
+                                                    WHERE id_trans = '{data["id_trans"]}'
                                                     AND NOT EXISTS (
                                                         SELECT approval_status
                                                         FROM trans_approval_detail dd
-                                                        WHERE dd.header_id = '{data["id_retur"]}'
+                                                        WHERE dd.id_trans = '{data["id_trans"]}'
                                                         AND dd.approval_status <> 3 
                                                         AND dd.active = true
                                                     )"""
@@ -213,13 +198,13 @@ class c_inventory_subsidiary_retur_approval(object):
         sql_reject = f"""
                 UPDATE trans_approval_detail
         SET approval_status = 5, action_time = '{action_time}'
-        WHERE order_approve > {data["order_approve"]} and header_id = '{data["id_retur"]}'
+        WHERE order_approve > {data["order_approve"]} and id_trans = '{data["id_trans"]}'
         and active = true
         """
 
-        sql_update_status_approval_header = f"""UPDATE trans_approval_header
+        sql_update_status_approval_header = f"""UPDATE trans_inventory_subsidiary_sales_order_header
                                                     SET approval_status = 4, description = '{data["description"]}', updateindb = '{action_time}'
-                                                    WHERE header_id = '{data["id_retur"]}'"""
+                                                    WHERE id_trans = '{data["id_trans"]}'"""
 
         print(sql_update_status_approval_header)
 
