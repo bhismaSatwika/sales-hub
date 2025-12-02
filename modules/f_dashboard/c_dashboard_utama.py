@@ -1,10 +1,14 @@
 from datetime import datetime
+import io
 import json
 from fastapi import HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from library import *
 import os
 from library.router import app
 from library.db import Db
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font
 
 
 class c_dashboard_utama(object):
@@ -418,6 +422,97 @@ class c_dashboard_utama(object):
 
         return data
 
+    async def export_outstanding_payment(
+        self,
+        company_id,
+        cabang_id,
+        data_tanggal,
+    ):
+        where = f"""and company_id = {company_id} AND cabang_id = {cabang_id}"""
+        if int(company_id) == 1:
+            where = ""
+        elif int(company_id) == 2 and int(cabang_id) == 11:
+            where = f"""and company_id = {company_id}"""
+
+        sql = f"""SELECT * FROM (SELECT
+                    dd.company_name,
+                    cc.id_cabang as id_cabang,
+                    cc.cabang_name,
+                    bb.nama_customer,
+                    sum(amount_total_outstanding) as total_outstanding,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date <= 0 then amount_total_outstanding else 0 end) no_due_date,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 1 and 30 then amount_total_outstanding else 0 end) _1_30,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 31 and 60 then amount_total_outstanding else 0 end) _31_60,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 60 and 90 then amount_total_outstanding else 0 end) _60_90,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date > 90 then amount_total_outstanding else 0 end) _90
+                    FROM
+                        trans_inventory_subsidiary_invoice aa
+                        LEFT JOIN master_customer bb on aa.customer_id=bb.id_customer
+                        LEFT JOIN master_company_cabang cc on bb.cabang_id=cc.id_cabang
+                        LEFT JOIN master_company dd on bb.company_id=dd.id_company
+                    WHERE complete_payment=FALSE {where}
+                  	GROUP BY
+                    dd.id_company,
+                    dd.company_name,
+                    cc.id_cabang,
+                    cc.cabang_name,
+                    bb.id_customer,
+                    bb.nama_customer) zz"""
+
+        try:
+            result = await self.db.executeToDict(sql)
+            print(sql)
+            wb = self.generate_excel_outstanding_payment(result)
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            return StreamingResponse(
+                buffer,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": "attachment; filename=example.xlsx"},
+            )
+
+        except Exception as e:
+            message = {"status": "error"}
+            raise HTTPException(400, ("The error is: ", str(e)))
+
+    def generate_excel_outstanding_payment(self, result_data):
+        wb = Workbook()
+        ws = wb.active
+        ws["A1"].value = "Company Name"
+        ws["B1"].value = "Cabang ID"
+        ws["C1"].value = "Cabang Name"
+        ws["D1"].value = "Nama Customer"
+        ws["E1"].value = "Total Outstanding"
+        ws["F1"].value = "No Due Date"
+        ws["G1"].value = "1 - 30"
+        ws["H1"].value = "31 - 60"
+        ws["I1"].value = "61 - 90"
+        ws["J1"].value = "> 90"
+
+        if len(result_data) > 0:
+            data_key = []
+            i = 0
+
+        x = 0
+        for key, value in result_data[0].items():
+            data_key.append(key)
+            ws.cell(1, x + 1).font = Font(b=True, color="000000")
+            ws.cell(1, x + 1).fill = PatternFill(
+                start_color="ffff00", end_color="ffff00", fill_type="solid"
+            )
+            x = x + 1
+
+        for data in result_data:
+            data_export = []
+            for key in data_key:
+                data_export.append(data[key])
+            ws.append(data_export)
+            i = i + 1
+
+        return wb
+
     async def read_inventori_resume(
         self, orderby, limit, offset, filter, filter_other="", filter_other_conj=""
     ):
@@ -660,6 +755,101 @@ class c_dashboard_utama(object):
 
         return data
 
+    async def export_sales_header(
+        self,
+        company_id,
+        cabang_id,
+        tanggal=None,
+        tanggal_start=None,
+    ):
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
+        if int(company_id) == 1:
+            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"
+        elif int(company_id) == 2 and int(cabang_id) == 11:
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
+
+        sql = f"""
+                    SELECT C.company_name,
+            D.cabang_name,
+            B.nama_produk,
+            A.total_qty,
+            A.total_sales,
+            A.total_outstanding 
+            FROM
+            (
+                SELECT
+                B.company_id,
+                B.cabang_id,
+                B.produk_id,
+                SUM ( B.qty ) AS total_qty,
+                SUM ( amount_total ) AS total_sales,
+                SUM ( amount_total_outstanding ) AS total_outstanding 
+                FROM
+                trans_inventory_subsidiary_invoice
+                A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
+                {where}
+                GROUP BY
+                B.produk_id,
+                company_id,
+                cabang_id 
+            )
+            A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
+            LEFT JOIN master_company C ON A.company_id = C.id_company
+            LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
+            AND A.cabang_id = D.id_cabang
+            """
+
+        try:
+            result = await self.db.executeToDict(sql)
+            print(sql)
+            wb = self.generate_excel_sales_header(result)
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            return StreamingResponse(
+                buffer,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": "attachment; filename=example.xlsx"},
+            )
+        except Exception as e:
+            print(e)
+            raise HTTPException(400, ("The error is: ", str(e)))
+
+        return result
+
+    def generate_excel_sales_header(self, result_data):
+        wb = Workbook()
+        ws = wb.active
+
+        ws["A1"].value = "Company Name"
+        ws["B1"].value = "Cabang Name"
+        ws["C1"].value = "Total Sales"
+        ws["D1"].value = "Total Qty"
+        ws["E1"].value = "Total Outstanding"
+
+        if len(result_data) > 0:
+            data_key = []
+            i = 0
+
+        x = 0
+        for key, value in result_data[0].items():
+            data_key.append(key)
+            ws.cell(1, x + 1).font = Font(b=True, color="000000")
+            ws.cell(1, x + 1).fill = PatternFill(
+                start_color="ffff00", end_color="ffff00", fill_type="solid"
+            )
+            x = x + 1
+
+        for data in result_data:
+            data_export = []
+            for key in data_key:
+                data_export.append(data[key])
+            ws.append(data_export)
+            i = i + 1
+
+        return wb
+
     async def read_sales_header_produk(
         self,
         orderby,
@@ -669,14 +859,15 @@ class c_dashboard_utama(object):
         company_id,
         cabang_id,
         tanggal=None,
+        tanggal_start=None,
         filter_other="",
         filter_other_conj="",
     ):
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
         if int(company_id) == 1:
-            where = f"WHERE tanggal_invoice <= '{tanggal}' and b.status_release = true"
+            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}' and b.status_release = true"""
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
 
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
@@ -723,6 +914,81 @@ class c_dashboard_utama(object):
 
         return data
 
+    async def export_sales_header(
+        self,
+        company_id,
+        cabang_id,
+        tanggal=None,
+        tanggal_start=None,
+    ):
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}'"""
+        if int(company_id) == 1:
+            where = f"WHERE tanggal_invoice <= '{tanggal}' and b.status_release = true"
+        elif int(company_id) == 2 and int(cabang_id) == 11:
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}' and b.status_release = true"""
+        sql = f"""
+        SELECT B.nama_produk, A.* FROM (
+            SELECT A.produk_id, SUM(A.qty) total_qty,SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding from trans_inventory_subsidiary_invoice Z
+            LEFT JOIN trans_inventory_subsidiary_sales_order A on Z.id_trans_sales_order = A.id_trans
+            LEFT JOIN master_company B on A.company_id = B.id_company
+            LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id = C.id_company
+            {where}
+            GROUP BY A.produk_id
+            ) A
+            LEFT JOIN master_produk B on A.produk_id = B.id_produk
+            """
+
+        try:
+            result = await self.db.executeToDict(sql)
+            print(sql)
+            wb = self.generate_excel_sales_header(result)
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+
+            return StreamingResponse(
+                buffer,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": "attachment; filename=example.xlsx"},
+            )
+        except Exception as e:
+            print(e)
+            raise HTTPException(400, ("The error is: ", str(e)))
+
+        return result
+
+    def generate_excel_sales_header(self, result_data):
+        wb = Workbook()
+        ws = wb.active
+
+        ws["A1"].value = "Company Name"
+        ws["B1"].value = "Cabang Name"
+        ws["C1"].value = "Total Sales"
+        ws["D1"].value = "Total Qty"
+        ws["E1"].value = "Total Outstanding"
+
+        if len(result_data) > 0:
+            data_key = []
+            i = 0
+
+        x = 0
+        for key, value in result_data[0].items():
+            data_key.append(key)
+            ws.cell(1, x + 1).font = Font(b=True, color="000000")
+            ws.cell(1, x + 1).fill = PatternFill(
+                start_color="ffff00", end_color="ffff00", fill_type="solid"
+            )
+            x = x + 1
+
+        for data in result_data:
+            data_export = []
+            for key in data_key:
+                data_export.append(data[key])
+            ws.append(data_export)
+            i = i + 1
+
+        return wb
+
 
 """
 list your path url at bottom
@@ -748,6 +1014,16 @@ async def read_outstanding_payment_detail(
     return await ob_data.read_outstanding_payment_detail(
         orderby, limit, offset, filter, company_id, cabang_id, tanggal
     )
+
+
+@app.get("/api/f_dashboard/c_dashboard_utama/export_outstanding_payment")
+async def read_outstanding_payment_detail(
+    tanggal: str = Query(None, alias="tanggal"),
+    company_id: int = Query(None, alias="company_id"),
+    cabang_id: int = Query(None, alias="cabang_id"),
+):
+    ob_data = c_dashboard_utama()
+    return await ob_data.export_outstanding_payment(company_id, cabang_id, tanggal)
 
 
 @app.get("/api/f_dashboard/c_dashboard_utama/read_inventori_resume")
