@@ -59,7 +59,7 @@ class c_dashboard_utama(object):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal_invoice BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
         if int(company_id) == 1:
             where = f"""WHERE aa.tanggal_invoice BETWEEN '{tanggal_start}' AND '{tanggal}'"""
