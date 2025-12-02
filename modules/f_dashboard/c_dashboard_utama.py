@@ -914,18 +914,18 @@ class c_dashboard_utama(object):
 
         return data
 
-    async def export_sales_header(
+    async def export_sales_header_produk(
         self,
         company_id,
         cabang_id,
         tanggal=None,
         tanggal_start=None,
     ):
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice <= '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
         if int(company_id) == 1:
-            where = f"WHERE tanggal_invoice <= '{tanggal}' and b.status_release = true"
+            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice <= '{tanggal}' and b.status_release = true"""
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
         sql = f"""
         SELECT B.nama_produk, A.* FROM (
             SELECT A.produk_id, SUM(A.qty) total_qty,SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding from trans_inventory_subsidiary_invoice Z
@@ -941,7 +941,7 @@ class c_dashboard_utama(object):
         try:
             result = await self.db.executeToDict(sql)
             print(sql)
-            wb = self.generate_excel_sales_header(result)
+            wb = self.generate_excel_sales_header_produk(result)
             buffer = io.BytesIO()
             wb.save(buffer)
             buffer.seek(0)
@@ -957,14 +957,14 @@ class c_dashboard_utama(object):
 
         return result
 
-    def generate_excel_sales_header(self, result_data):
+    def generate_excel_sales_header_produk(self, result_data):
         wb = Workbook()
         ws = wb.active
 
-        ws["A1"].value = "Company Name"
-        ws["B1"].value = "Cabang Name"
-        ws["C1"].value = "Total Sales"
-        ws["D1"].value = "Total Qty"
+        ws["A1"].value = "Nama Produk"
+        ws["B1"].value = "Produk Id"
+        ws["C1"].value = "Total Qty"
+        ws["D1"].value = "Amount Total"
         ws["E1"].value = "Total Outstanding"
 
         if len(result_data) > 0:
@@ -1074,4 +1074,30 @@ async def read_sales_header_produk(
     ob_data = c_dashboard_utama()
     return await ob_data.read_sales_header_produk(
         orderby, limit, offset, filter, company_id, cabang_id, tanggal, tanggal_start
+    )
+
+
+@app.get("/api/f_dashboard/c_dashboard_utama/export_sales_header")
+async def read_sales_header(
+    tanggal: str = Query(None, alias="tanggal"),
+    tanggal_start: str = Query(None, alias="tanggal_start"),
+    company_id: int = Query(None, alias="company_id"),
+    cabang_id: int = Query(None, alias="cabang_id"),
+):
+    ob_data = c_dashboard_utama()
+    return await ob_data.export_sales_header(
+        company_id, cabang_id, tanggal, tanggal_start
+    )
+
+
+@app.get("/api/f_dashboard/c_dashboard_utama/export_sales_header_produk")
+async def read_sales_header(
+    tanggal: str = Query(None, alias="tanggal"),
+    tanggal_start: str = Query(None, alias="tanggal_start"),
+    company_id: int = Query(None, alias="company_id"),
+    cabang_id: int = Query(None, alias="cabang_id"),
+):
+    ob_data = c_dashboard_utama()
+    return await ob_data.export_sales_header_produk(
+        company_id, cabang_id, tanggal, tanggal_start
     )
