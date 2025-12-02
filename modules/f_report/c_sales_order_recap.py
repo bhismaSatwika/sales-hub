@@ -137,7 +137,7 @@ class c_sales_order_recap(object):
             await self.db.executeQuery(sqlString)
             message = {"status": "success"}
         except Exception as e:
-            # print(e)
+            print(e)
             message = {"status": "error : " + str(e)}
             raise HTTPException(400, ("The error is: ", str(e)))
         return message
@@ -189,7 +189,7 @@ class c_sales_order_recap(object):
         sql_update_invoice = f"""UPDATE trans_inventory_subsidiary_invoice 
                                 SET id_sales_report = '{data_where['number_report']}' 
                                 WHERE id_sales_report IS NULL AND to_char(tanggal_invoice,'yyyy') = '{data_where['tahun']}' 
-                                AND to_char(tanggal_invoice,'MM')::INTEGER = '{data_where['bulan']}'::INTEGER AND produk_id = {data_where['produk_id']}"""
+                                AND to_char(tanggal_invoice,'MM')::INTEGER = '{data_where['bulan']}'::INTEGER"""
 
         sql_insert_recap_detail = f"""INSERT INTO trans_sales_recap_detail (id_header,invoice_number) 
                                SELECT '{data_where['id']}',id_trans FROM trans_inventory_subsidiary_invoice
@@ -216,6 +216,32 @@ class c_sales_order_recap(object):
                             WHERE
                             harga_total <> 0 
                             AND produk_id = {data_where['produk_id']};"""
+
+        sql_insert_sales_recap_inventory = f"""INSERT INTO trans_sales_recap_inventory_detail (produk_id,company_id,cabang_id,qty,harga_total, harga_satuan,id_sales_report) 
+        SELECT *, 
+            CASE WHEN qty = 0 or harga_total = 0 THEN 0
+            ELSE ROUND(harga_total/qty,2) END as harga_satuan,  '{data_where['number_report']}' as id_sales_report
+        FROM (
+        SELECT
+            a.produk_id,
+            a.company_id,
+            a.cabang_id,
+            qty + CASE WHEN qty_ is null then 0 ELSE qty_ END as qty,
+            harga_total + CASE WHEN amount is null then 0 ELSE amount END as harga_total
+            FROM
+            trans_inventory_detail A
+            LEFT JOIN (
+            SELECT  produk_id, company_id, cabang_id, sum(b.qty) qty_, sum(amount) as amount from trans_inventory_subsidiary_invoice A
+            LEFT JOIN trans_inventory_subsidiary_sales_order B on A.id_trans_sales_order = B.id_trans
+           WHERE date_part('month', tanggal_invoice) = {data_where['bulan']} and date_part('year', tanggal_invoice) = {data_where['tahun']}
+                and b.status_release = true
+            GROUP BY company_id, cabang_id , produk_id
+            ) B on A.company_id = B.company_id and A.cabang_id = B.cabang_id AND A.produk_id = B.produk_id
+            WHERE
+            harga_total <> 0 
+            
+            ) X
+                            """
         print(sql_insert_sales_recap_inventory)
 
         # sql_insert_sales_recap_inventory = f"""INSERT INTO trans_sales_recap_inventory_detail (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,id_sales_report)
@@ -231,52 +257,70 @@ class c_sales_order_recap(object):
             ]
         )
 
-        sql_sales_recap_report_detail = f"""
-                SELECT A
-                .number_report,
-                A.tanggal,
-                A.produk_id,
-                concat ( b.nama_produk, ' (', C.uom_satuan, ')' ) nama_produk
+        if trans["status"] == False:
+            message = {"status": False, "msg": "Eror. Cek query."}
+            print(str(trans["detail"]))
+            raise HTTPException(400, str(trans["detail"]))
+
+        # sql_sales_recap_report_detail = f"""
+        #         SELECT A
+        #         .number_report,
+        #         A.tanggal,
+        #         A.produk_id,
+        #         concat ( b.nama_produk, ' (', C.uom_satuan, ')' ) nama_produk
+        #         FROM
+        #         trans_sales_recap_header
+        #         A LEFT JOIN master_produk b ON A.produk_id = b.id_produk
+        #         LEFT JOIN master_produk_uom_satuan C ON B.uom_satuan = C.id_uom_satuan
+        #         WHERE A.id = '{data_where['id']}'
+        # """
+
+        sql_resume_sale = f"""SELECT
+                XX.*,
+                AA.nama_produk,
+                round( sales_total / sales_qty, 2 ) :: FLOAT AS harga_sat_penj,
+                round( hpp / sales_qty, 2 ) :: FLOAT AS harga_sat_hpp,
+                sales_total - hpp AS margin_total,
+                round( ( sales_total - hpp ) / sales_total * 100, 2 ) :: FLOAT margin_percent 
                 FROM
-                trans_sales_recap_header
-                A LEFT JOIN master_produk b ON A.produk_id = b.id_produk
-                LEFT JOIN master_produk_uom_satuan C ON B.uom_satuan = C.id_uom_satuan
-                WHERE A.id = '{data_where['id']}'  
-        """
+                (
+                    SELECT SUM
+                    ( bb.amount ) sales_total,
+                    SUM ( cc.qty ) sales_qty,
+                    SUM ( cc.harga_total_hpp ) AS hpp,
+                    produk_id 
+                    FROM
+                    trans_sales_recap_detail aa
+                    LEFT JOIN trans_inventory_subsidiary_invoice bb ON aa.invoice_number = bb.id_trans
+                    LEFT JOIN trans_inventory_subsidiary_sales_order cc ON bb.id_trans_sales_order = cc.id_trans 
+                    WHERE
+                    aa.id_header = {data_where['id']}
+                    GROUP BY
+                produk_id 
+                ) xx
+            LEFT JOIN master_produk AA on AA.id_produk = XX.produk_id"""
 
-        sql_resume_sale = f"""SELECT *,
-                                round(sales_total/sales_qty,2)::FLOAT as harga_sat_penj,
-                                round(hpp/sales_qty,2)::FLOAT as harga_sat_hpp,
-                                sales_total-hpp as margin_total,
-                                round((sales_total-hpp)/sales_total*100,2)::FLOAT margin_percent
-                                FROM
-                                (
-                                SELECT
-                                    sum(bb.amount) sales_total,
-                                    sum(bb.qty) sales_qty,
-                                    sum(cc.harga_total_hpp) as hpp
-                                FROM
-                                    trans_sales_recap_detail aa
-                                    LEFT JOIN trans_inventory_subsidiary_invoice bb on aa.invoice_number=bb.id_trans
-                                    LEFT JOIN trans_inventory_subsidiary_sales_order cc on bb.id_trans_sales_order=cc.id_trans
-                                    WHERE aa.id_header='{data_where['id']}'
-                                    ) xx"""
-
-        sql_resume_inventory = f"""	SELECT *,
+        sql_resume_inventory = f"""SELECT aa.*,
+  bb.nama_produk,
                             round(total_hpp/inv_qty,2)::FLOAT as harga_satuan FROM
                             (
-                            SELECT 
+                            SELECT
+                            produk_id,
                             sum(qty) as inv_qty,
                             sum(harga_total) as total_hpp
                             FROM trans_sales_recap_inventory_detail
                             WHERE id_sales_report='{data_where['number_report']}'
-                            ) aa"""
+                            GROUP BY produk_id
+                            ) aa
+                            LEFT JOIN master_produk bb on aa.produk_id = bb.id_produk
+                            """
 
         sql_detail_sales = f"""	SELECT aa.invoice_number,
                                     dd.nama_customer,
                                     ee.cabang_name,
                                     ff.company_name,
-                                    bb.qty,
+                                    gg.nama_produk,
+                                    cc.qty,
                                     hh.uom_satuan,
                                     cc.harga_satuan,
                                     cc.harga_total,
@@ -290,9 +334,9 @@ class c_sales_order_recap(object):
                                     LEFT JOIN master_customer dd on bb.customer_id=dd.id_customer
                                     LEFT JOIN master_company_cabang ee on cc.cabang_id=ee.id_cabang
                                     LEFT JOIN master_company ff on cc.company_id=ff.id_company
-                                    LEFT JOIN master_produk gg on bb.produk_id=gg.id_produk
+                                    LEFT JOIN master_produk gg on cc.produk_id=gg.id_produk
                                     LEFT JOIN master_produk_uom_satuan hh on gg.uom_satuan=hh.id_uom_satuan
-                                    WHERE id_header='{data_where['id']}' """
+                                    WHERE id_header={data_where['id']}"""
 
         sql_detail_inventory = f"""SELECT 
                                         bb.company_name,
@@ -305,9 +349,9 @@ class c_sales_order_recap(object):
                                     LEFT JOIN master_company_cabang cc on aa.cabang_id=cc.id_cabang
                                     WHERE id_sales_report='{data_where['number_report']}'"""
 
-        sales_recap_report_detail = await self.db.executeToDict(
-            sql_sales_recap_report_detail
-        )
+        # sales_recap_report_detail = await self.db.executeToDict(
+        #     sql_sales_recap_report_detail
+        # )
         resume_sale = await self.db.executeToDict(sql_resume_sale)
         resume_inventory = await self.db.executeToDict(sql_resume_inventory)
         detail_sales = await self.db.executeToDict(sql_detail_sales)
@@ -319,7 +363,7 @@ class c_sales_order_recap(object):
             raise HTTPException(400, str(trans["detail"]))
 
         pdf = PDF(
-            sales_recap_report_detail=sales_recap_report_detail,
+            number_report=data_where["number_report"],
             resume_sale_data=resume_sale,
             resume_inventory_data=resume_inventory,
             detail_sales_data=detail_sales,

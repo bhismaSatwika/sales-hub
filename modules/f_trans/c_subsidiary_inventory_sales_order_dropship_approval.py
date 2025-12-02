@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timedelta
+import hashlib
 import json
 import mimetypes
 from typing import List, Optional
@@ -260,9 +261,12 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                         FROM trans_inventory_subsidiary_sales_order
                 WHERE company_id = {data['company_id']} AND cabang_id = {data['cabang_id']} AND id_trans = '{data['id_trans']}'"""
 
-            trans = await self.db.executeTrans([sql_insert_header, sql_insert_detail])
-            if trans["status"] == False:
-                raise HTTPException(400, str(trans["detail"]))
+            sql_insert_invoice_pre_payment = await self.insert_into_invoice_pre_payment(
+                data
+            )
+            queries.append(sql_insert_header)
+            queries.append(sql_insert_detail)
+            queries.append(sql_insert_invoice_pre_payment)
 
         datetime_now = datetime.now()
 
@@ -371,6 +375,102 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
         }
 
         return data_kode
+
+    async def get_id_trans_kode_invoice(
+        self, company_id, cabang_id, kode_trans, tahun, bulan
+    ):
+        # bulan = datetime.now().month
+        # tahun = datetime.now().year
+
+        sql_kode = (
+            f"""SELECT kode FROM master_company WHERE id_company = {company_id}"""
+        )
+
+        kode_company = await self.db.executeToDict(sql_kode)
+
+        sql_no_urut = f"""SELECT
+                                LPAD( CAST ( COALESCE ( MAX ( A.no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ), 4, '0' ) AS current_no_urut_convert,
+                                CAST ( COALESCE ( MAX ( A.no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ) AS current_no_urut 
+                            FROM
+                                trans_inventory_subsidiary_invoice_pre_payment A
+                                LEFT JOIN trans_inventory_subsidiary_sales_order B on A.id_trans_sales_order = B.id_trans
+                            WHERE
+                                company_id = {company_id} 
+                                AND cabang_id = {cabang_id}
+                                AND DATE_PART( 'year', tanggal_invoice ) = {tahun} 
+                                AND DATE_PART( 'month', tanggal_invoice ) = {bulan}"""
+
+        no_urut = await self.db.executeToDict(sql_no_urut)
+        # print(no_urut[0]['current_no_urut_convert'])
+
+        id_trans = (
+            "IDFOOD."
+            + str(kode_company[0]["kode"])
+            + "."
+            + str(cabang_id)
+            + "."
+            + kode_trans
+            + "."
+            + str(tahun)
+            + "."
+            + str(str(bulan).zfill(2) + "." + no_urut[0]["current_no_urut_convert"])
+        )
+
+        data_kode = {
+            "id_trans": id_trans,
+            "no_urut": no_urut[0]["current_no_urut_convert"],
+        }
+
+        return data_kode
+
+    async def insert_into_invoice_pre_payment(self, data):
+        sql_inv_sales_order = f"""SELECT * FROM trans_inventory_subsidiary_sales_order_header WHERE id_trans = '{data['id_trans']}'"""
+        result_inv_sales_order = await self.db.executeToDict(sql_inv_sales_order)
+        sales_order = result_inv_sales_order[0]
+
+        tanggal = datetime.today()
+        tahun = tanggal.year
+        bulan = tanggal.month
+
+        data_kode_iv = await self.get_id_trans_kode_invoice(
+            sales_order["company_id"],
+            sales_order["cabang_id"],
+            "INV-PRE",
+            tahun,
+            bulan,
+        )
+
+        new_date = tanggal + timedelta(days=7)
+        id_trans_md5 = hashlib.md5(data_kode_iv["id_trans"].encode()).hexdigest()
+
+        if int(sales_order["id_pembayaran"]) == 1:
+            new_date = tanggal + timedelta(days=1)
+
+        data_invoice = {
+            "id_trans": data_kode_iv["id_trans"],
+            "updateindb": datetime.today(),
+            "userupdate": auth.AuthAction.get_data_params("username"),
+            "status_release": False,
+            "tanggal_invoice": tanggal,
+            "id_trans_sales_order": sales_order["id_trans"],
+            "status_invoice": True,
+            "no_urut": data_kode_iv["no_urut"],
+            "tanggal_due_date": new_date,
+            "amount": sales_order["harga_total"],
+            "amount_ppn": sales_order["total_ppn"],
+            "amount_pph": sales_order["total_pph"],
+            "md5_file": id_trans_md5,
+            "amount_total": sales_order["harga_total_ppn_pph"],
+            "amount_total_outstanding": sales_order["harga_total_ppn_pph"],
+            "customer_id": sales_order["customer_id"],
+            "id_pembayaran": sales_order["id_pembayaran"],
+            "biaya_admin": sales_order["biaya_admin"],
+        }
+
+        sql_insert_invoice = self.db.genStrInsertSingleObject(
+            data_invoice, "trans_inventory_subsidiary_invoice_pre_payment"
+        )
+        return sql_insert_invoice
 
 
 """

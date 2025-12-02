@@ -10,4 +10,5 @@ path_routes_not_auth = [
     "openapi",
     "dashboard",
     "api/f_trans/c_subsidiary_inventory_sales_order/create_pdf_so",
+    "api/f_trans/c_subsidiary_inventory_sales_order_dropship/create_pdf_so_pre_payment",
 ]

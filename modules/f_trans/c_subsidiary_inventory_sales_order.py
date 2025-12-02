@@ -95,7 +95,9 @@ class c_subsidiary_inventory_sales_order(object):
                         hh.md5_file,
                         ii.pembayaran,
                         jj.username AS nik,
-                        jj.NAME AS nama_sales
+                        jj.NAME AS nama_sales,
+                        kk.jumlah_produk
+
                     FROM
                         trans_inventory_subsidiary_sales_order_header aa
                         LEFT JOIN master_company ee ON aa.company_id = ee.id_company
@@ -104,6 +106,10 @@ class c_subsidiary_inventory_sales_order(object):
                         LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                         LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
                         LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
+                        LEFT JOIN (
+                          SELECT "count"(id_trans) as jumlah_produk, id_trans FROM trans_inventory_subsidiary_sales_order
+                          GROUP BY id_trans
+                        ) kk on aa.id_trans = kk.id_trans
                     )zz"""
             + str_clause
         )
@@ -140,7 +146,8 @@ class c_subsidiary_inventory_sales_order(object):
                         hh.md5_file,
                         ii.pembayaran,
                         jj.username AS nik,
-                        jj.NAME AS nama_sales
+                        jj.NAME AS nama_sales,
+                        kk.jumlah_produk
                     FROM
                         trans_inventory_subsidiary_sales_order_header aa
                         LEFT JOIN master_company ee ON aa.company_id = ee.id_company
@@ -149,6 +156,10 @@ class c_subsidiary_inventory_sales_order(object):
                         LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                         LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
                         LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
+                        LEFT JOIN (
+                          SELECT "count"(id_trans) as jumlah_produk, id_trans FROM trans_inventory_subsidiary_sales_order
+                          GROUP BY id_trans
+                        ) kk on aa.id_trans = kk.id_trans
                     ) zz """
             + str_clause_count
         )

@@ -100,7 +100,10 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                         aa.approval_status,
                         ll.id_trans as id_delivery,
                         ll.status_release as status_delivery,
-                        ll.is_delivered
+                        ll.is_delivered,
+                        mm.md5_file as md5_file_pre_payment,
+                        nn.jumlah_produk
+                        
                     FROM
                         trans_inventory_subsidiary_sales_order_header aa
                         LEFT JOIN master_company ee ON aa.company_id = ee.id_company
@@ -111,6 +114,11 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                         LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
                         LEFT JOIN master_approval_status kk on aa.approval_status = kk.id_status
                         LEFT JOIN trans_inventory_holding_delivery_preparation_header ll on ll.id_trans_sales_order = aa.id_trans
+                        LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment mm ON aa.id_trans = mm.id_trans_sales_order
+                        LEFT JOIN (
+                          SELECT "count"(id_trans) as jumlah_produk, id_trans FROM trans_inventory_subsidiary_sales_order
+                          GROUP BY id_trans
+                        ) nn on aa.id_trans = nn.id_trans
                     )zz"""
             + str_clause
         )
@@ -152,7 +160,8 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                         aa.approval_status,
                         ll.id_trans as id_delivery,
                         ll.status_release as status_delivery,
-                        ll.is_delivered
+                        ll.is_delivered,
+                        nn.jumlah_produk
                     FROM
                         trans_inventory_subsidiary_sales_order_header aa
                         LEFT JOIN master_company ee ON aa.company_id = ee.id_company
@@ -163,6 +172,10 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                         LEFT JOIN ( SELECT * FROM master_user WHERE is_salesman = 't' ) jj ON aa.salesman = jj.id_user
                         LEFT JOIN master_approval_status kk on aa.approval_status = kk.id_status
                         LEFT JOIN trans_inventory_holding_delivery_preparation_header ll on ll.id_trans_sales_order = aa.id_trans
+                        LEFT JOIN (
+                          SELECT "count"(id_trans) as jumlah_produk, id_trans FROM trans_inventory_subsidiary_sales_order
+                          GROUP BY id_trans
+                        ) nn on aa.id_trans = nn.id_trans
                     ) zz """
             + str_clause_count
         )
@@ -836,6 +849,93 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         return data
 
+    async def create_pdf_so_pre_payment(self, id_trans):
+
+        sql_header = f"""SELECT
+                            aa.id,
+                            aa.id_trans,
+                            aa.no_urut,
+                            aa.company_id,
+                            aa.cabang_id,
+                            aa.salesman,
+                            aa.tanggal,
+                            aa.customer_id,
+                            aa.id_pembayaran,
+                            aa.total_ppn,
+                            aa.total_pph,
+                            aa.harga_total_hpp,
+                            aa.biaya_admin,
+                            aa.harga_total_ppn_pph,
+                            aa.flag_sales_report,
+                            aa.status_release,
+                            aa.userupdate,
+                            aa.updateindb,
+                            aa.harga_total,
+                            bb.company_name,
+                            cc.cabang_name,
+                            dd.name as nama_sales,
+                            ee.pembayaran,
+                            ( CASE WHEN aa.status_release = TRUE THEN 'Release' ELSE'Draft' END ) AS ket_status_release,
+                            ff.id_trans as no_invoice,
+                            ff.tanggal_invoice,
+                            gg.nama_customer,
+                            gg.alamat,
+                            gg.account_va,
+                            gg.no_hp,
+                            ff.tanggal_due_date,
+                            ff.amount_total_outstanding as ato,
+                            gg.account_bank_name,
+                            ff.md5_file,
+                            CASE WHEN ff.complete_payment = TRUE THEN 'Lunas' ELSE 'Belum Lunas' END as complete_payment
+                        FROM trans_inventory_subsidiary_sales_order_header aa
+                        LEFT JOIN master_company bb ON aa.company_id = bb.id_company
+                        LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
+                        LEFT JOIN master_user dd ON aa.salesman = dd.id_user
+                        LEFT JOIN master_jenis_pembayaran ee ON aa.id_pembayaran = ee.id_pembayaran
+                        LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment ff ON aa.id_trans = ff.id_trans_sales_order
+                        LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                        WHERE ff.md5_file = '{id_trans}'"""
+
+        print(sql_header)
+
+        sql_detail = f"""SELECT
+                            dd.nama_produk,
+                            aa.qty,
+                            ee.uom_satuan,
+                            aa.harga_satuan,
+                            aa.harga_total,
+                            aa.pph_22_value,
+                            aa.ppn_value,
+                            aa.harga_total_ppn_pph
+                    FROM trans_inventory_subsidiary_sales_order aa
+                    LEFT JOIN master_company bb ON aa.company_id = bb.id_company
+                    LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
+                    LEFT JOIN master_produk dd ON aa.produk_id = dd.id_produk
+                    LEFT JOIN master_produk_uom_satuan ee ON dd.uom_satuan = ee.id_uom_satuan
+                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment ff ON aa.id_trans = ff.id_trans_sales_order
+                    WHERE ff.md5_file = '{id_trans}'"""
+
+        # result = await self.db.executeTrans([sql_header,sql_detail])
+        result_header = await self.db.executeToDict(sql_header)
+        result_detail = await self.db.executeToDict(sql_detail)
+
+        data_header = result_header[0]
+        data_detail = result_detail
+        pdf = PDF(
+            data_header,
+            data_detail,
+            qr_path="c_subsidiary_inventory_sales_order_dropship/create_pdf_so_pre_payment",
+        )
+
+        pdf_buffer = pdf.generate_report()
+        filenamex = data_header["id_trans"]
+
+        return StreamingResponse(
+            pdf_buffer,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"inline; filename={filenamex}.pdf"},
+        )
+
     async def read_files(self, id_trans):
         sql = f""" SELECT file_name, files FROM files_upload where id_trans = '{id_trans}' """
 
@@ -1326,6 +1426,21 @@ async def create_pdf_so(id_: str = Query(None, alias="id_")):
 
     ob_data = c_subsidiary_inventory_sales_order_dropship()
     return await ob_data.create_pdf_so(id_)
+
+
+@app.get(
+    "/api/f_trans/c_subsidiary_inventory_sales_order_dropship/create_pdf_so_pre_payment"
+)
+async def create_pdf_so(id_: str = Query(None, alias="id_")):
+
+    # def replaceForSqlInjection(sqlStr):
+    a = ["'", '"']
+
+    for item in a:
+        id_ = str(id_).replace(item, "")
+
+    ob_data = c_subsidiary_inventory_sales_order_dropship()
+    return await ob_data.create_pdf_so_pre_payment(id_)
 
 
 @app.get("/api/f_trans/c_subsidiary_inventory_sales_order_dropship/create_pdf_do")

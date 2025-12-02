@@ -9,11 +9,18 @@ import qrcode
 
 class PDF(FPDF):
     def __init__(
-        self, data_header, data_detail, orientation="P", unit="mm", format="A4"
+        self,
+        data_header,
+        data_detail,
+        qr_path="c_subsidiary_inventory_sales_order/create_pdf_so",
+        orientation="P",
+        unit="mm",
+        format="A4",
     ):
         super().__init__(orientation, unit, format)
         self.data_header = data_header
         self.data_detail = data_detail
+        self.qr_path = qr_path
 
     def header(self):
         self.add_font("Poppins", "", "files/font/Poppins/Poppins-Regular.ttf")
@@ -611,7 +618,7 @@ class PDF(FPDF):
         )
 
         qr.add_data(
-            "https://saleshub.idfood.co.id/api/f_trans/c_subsidiary_inventory_sales_order/create_pdf_so?id_="
+            f"https://saleshub.idfood.co.id/api/f_trans/{self.qr_path}?id_="
             + self.data_header["md5_file"]
         )
 

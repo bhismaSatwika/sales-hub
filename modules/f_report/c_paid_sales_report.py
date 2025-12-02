@@ -48,7 +48,7 @@ class c_paid_sales_report(object):
             FROM
             (
                 SELECT SUM(aa.amount_total) - sum(aa.amount_total_outstanding) as paid_sales_total,
-                SUM ( bb.qty ) sales_qty,
+                SUM ( bb.cc ) sales_qty,
                 SUM ( bb.harga_total_hpp ) AS hpp,
                 SUM (aa.amount_total) as sales_total,
                 bb.produk_id,

@@ -37,9 +37,7 @@ class c_trans_inventory_holding_delivery_preparation(object):
         is_delivered=False,
     ):
 
-        filter_other = (
-            f"""status_release = {release} and is_delivered = {is_delivered}"""
-        )
+        filter_other = f"""is_canceled = false and status_release = {release} and is_delivered = {is_delivered}"""
 
         filter_other_conj = f"and"
 
@@ -80,7 +78,8 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     gg.account_bank_name,
                     hh.md5_file,
                     aa.is_delivered,
-                    ii.pembayaran 
+                    ii.pembayaran,
+                    jj.is_canceled
                     FROM
                     trans_inventory_holding_delivery_preparation_header aa
                     LEFT JOIN master_company ee ON aa.company_id = ee.id_company
@@ -89,6 +88,7 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
                     LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                     LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran 
+                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans = jj.id_trans_sales_order
                 ) A
              
                """
@@ -122,7 +122,8 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     gg.account_va,
                     gg.account_bank_name,
                     hh.md5_file,
-                    ii.pembayaran 
+                    ii.pembayaran,
+                    jj.is_canceled
                     FROM
                     trans_inventory_holding_delivery_preparation_header aa
                     LEFT JOIN master_company ee ON aa.company_id = ee.id_company
@@ -130,7 +131,8 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     AND aa.company_id = ff.id_company
                     LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
                     LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
-                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran 
+                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
+                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans = jj.id_trans_sales_order
                 ) A
                 """
             + str_clause_count

@@ -23,22 +23,21 @@ class c_dashboard_utama(object):
         elif int(company_id) == 2 and int(cabang_id) == 11:
             where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
 
-        sql = f"""SELECT
-                    SUM(qty) as qty
-                FROM
-                    (
-                    SELECT
-                        company_id,
-                        cabang_id,
-                    SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END ) - SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END ) qty
-                FROM
-                    trans_inventory_detail_mutasi 
-                    {where}
-                GROUP BY
-                    produk_id,
-                    company_id,
-                    cabang_id
-                    ) aa"""
+        sql = f"""SELECT sum(ht) as qty
+            FROM
+            (
+                SELECT
+                company_id,
+                cabang_id,
+            SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END ) - SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END ) ht 
+            FROM
+            trans_inventory_detail_mutasi 
+            {where}
+            GROUP BY
+            produk_id,
+            company_id,
+            cabang_id 
+            ) aa;"""
 
         try:
             result = await self.db.executeToDict(sql)

@@ -486,7 +486,7 @@ class c_subsidiary_inventory_sales_order_release(object):
                     )
 
         except Exception as e:
-            print("Eroorrrrrr:", str(e))
+            print(message + str(e))
             message = "Gagal ketika rilis sales order: " + message + str(e)
             raise HTTPException(
                 status_code=400,
