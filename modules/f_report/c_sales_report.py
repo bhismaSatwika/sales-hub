@@ -36,12 +36,12 @@ class c_sales_report(object):
         ):
 
             filter_header = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND bb.produk_id = {produk_id} AND tanggal_invoice <= '{tanggal}'"""
-            filter_detail = f"""WHERE bb.company_id = {company_id} AND bb.cabang_id = {cabang_id} AND aa.produk_id = {produk_id} AND aa.tanggal_invoice <= '{tanggal}' and ee.status_release = true"""
+            filter_detail = f"""WHERE bb.company_id = {company_id} AND bb.cabang_id = {cabang_id} AND ee.produk_id = {produk_id} AND aa.tanggal_invoice <= '{tanggal}' and ee.status_release = true"""
 
             if company_id == 2 and cabang_id == 11:
                 filter_header = f"""WHERE company_id = {company_id} AND bb.produk_id = {produk_id} AND tanggal_invoice <= '{tanggal}'"""
 
-                filter_detail = f"""WHERE ee.company_id = {company_id} AND aa.produk_id = {produk_id} AND aa.tanggal_invoice <= '{tanggal}' and ee.status_release = true"""
+                filter_detail = f"""WHERE ee.company_id = {company_id} AND ee.produk_id = {produk_id} AND aa.tanggal_invoice <= '{tanggal}' and ee.status_release = true"""
 
             sql_product = f"""SELECT nama_produk from master_produk WHERE id_produk = {produk_id}"""
 
@@ -54,7 +54,7 @@ class c_sales_report(object):
                     FROM
                     (SELECT
                         sum(aa.amount_total) - sum(bb.biaya_admin) sales_total,
-                        sum(aa.qty) sales_qty,
+                        sum(bb.qty) sales_qty,
                         sum(bb.harga_total_hpp) as hpp
                     FROM trans_inventory_subsidiary_invoice aa
                     LEFT JOIN trans_inventory_subsidiary_sales_order bb on aa.
@@ -73,7 +73,7 @@ class c_sales_report(object):
                             ,bb.nama_customer
                             ,hh.cabang_name
                             ,gg.company_name
-                            ,aa.qty
+                            ,ee.qty
                             ,ff.uom_satuan
                             ,ee.harga_satuan
                             ,ee.harga_total
@@ -83,10 +83,11 @@ class c_sales_report(object):
                             ,round(((ee.harga_total-ee.harga_total_hpp)*100/ee.harga_total::FLOAT)::NUMERIC,2) as percent_margin
                         FROM
                             trans_inventory_subsidiary_invoice aa
-                            LEFT JOIN master_customer bb ON aa.customer_id = bb.id_customer
-                            LEFT JOIN master_produk cc ON aa.produk_id = cc.id_produk
-                            LEFT JOIN master_jenis_pembayaran dd ON aa.id_pembayaran = dd.id_pembayaran
                             LEFT JOIN trans_inventory_subsidiary_sales_order ee ON aa.id_trans_sales_order = ee.id_trans
+                            LEFT JOIN master_customer bb ON aa.customer_id = bb.id_customer
+                            LEFT JOIN master_produk cc ON ee.produk_id = cc.id_produk
+                            LEFT JOIN master_jenis_pembayaran dd ON aa.id_pembayaran = dd.id_pembayaran
+                            
                             LEFT JOIN master_produk_uom_satuan ff ON cc.uom_satuan = ff.id_uom_satuan
                             LEFT JOIN master_company gg ON ee.company_id = gg.id_company
                             LEFT JOIN master_company_cabang hh ON ee.cabang_id = hh.id_cabang

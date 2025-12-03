@@ -67,7 +67,8 @@ class c_inventory_subsidiary_invoice(object):
                 total_product,
                 A.updateindb,
                 C.company_id,
-                C.cabang_id
+                C.cabang_id,
+                A.md5_file
             FROM
                 trans_inventory_subsidiary_invoice
                 A LEFT JOIN ( SELECT id_trans, COUNT ( produk_id ) AS total_product FROM trans_inventory_subsidiary_sales_order GROUP BY id_trans ) B ON A.id_trans_sales_order = B.id_trans

@@ -580,6 +580,11 @@ class c_subsidiary_inventory_sales_order(object):
         # print(data["product"])
         # print("\n\n")
         # print(data["header"])
+        validate = await self.validate_release(
+            data["header"]["update_where"]["id_trans"]
+        )
+        if validate > 0:
+            raise HTTPException(400, "Data sudah di release, mohon muat ulang halaman")
 
         produk_update_where = data["product"]["update_where"]
         header_update_where = data["header"]["update_where"]
@@ -620,6 +625,9 @@ class c_subsidiary_inventory_sales_order(object):
     async def update(
         self, data, files: List[UploadFile], listFilename: List[str], product: List[str]
     ):
+        validate = await self.validate_release(data["id_trans"])
+        if validate > 0:
+            raise HTTPException(400, "Data sudah di release, mohon muat ulang halaman")
         data.update(
             {
                 "userupdate": auth.AuthAction.get_data_params("username"),
@@ -788,6 +796,11 @@ class c_subsidiary_inventory_sales_order(object):
             raise HTTPException(400, ("The error is: ", str(e)))
 
     async def delete_produk(self, data):
+        validate = await self.validate_release(
+            data["header"]["update_where"]["id_trans"]
+        )
+        if validate > 0:
+            raise HTTPException(400, "Data sudah di release, mohon muat ulang halaman")
         produk_delete_where = data["product"]["update_where"]
         header_update_where = data["header"]["update_where"]
         header_update_data = data["header"]["update_data"]
@@ -822,6 +835,13 @@ class c_subsidiary_inventory_sales_order(object):
         return message
 
     async def delete(self, data_where):
+        validate = await self.validate_release(data_where["id_trans"])
+        if validate > 0:
+            raise HTTPException(
+                400,
+                ("The error is: ", "Data sudah di release, mohon muat ulang halaman"),
+            )
+
         sqlHeader = self.db.genDeleteObject(
             data_where, "trans_inventory_subsidiary_sales_order_header"
         )
@@ -1487,6 +1507,13 @@ class c_subsidiary_inventory_sales_order(object):
         path = path_parent + id_trans_do + ".pdf"
         return await self.stream_file(path, id_trans_do)
 
+    async def validate_release(self, id_trans):
+        sql = f"""SELECT count(*) count FROM trans_inventory_subsidiary_sales_order_header WHERE id_trans = '{id_trans}' AND status_release = TRUE"""
+        print(sql)
+        res = await self.db.executeToDict(sql)
+        result = res[0]["count"]
+        return result
+
     async def export_sales_order(
         self, tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
     ):
@@ -1527,46 +1554,46 @@ class c_subsidiary_inventory_sales_order(object):
 
         sql = f"""SELECT * FROM (
                      SELECT 
-                        aa.id_trans as id_so,
+                        xx.id_trans as id_so,
                         hh.id_trans as id_invoice,
                         gg.account_va,
 						gg.nama_customer,
                         gg.npwp,
                         bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
-                        aa.tanggal,
+                        xx.tanggal,
                         ee.company_name,
                         ff.cabang_name,
                         aa.qty,
                         aa.harga_satuan,
                         aa.harga_total,
-						aa.ppn_percent,
-						aa.ppn_value,
-						aa.pph_22_percent,
-						aa.pph_22_value,
-                        aa.biaya_admin,
-						aa.harga_total_ppn_pph,
+                        aa.ppn_percent,
+                        aa.ppn_value,
+                        aa.pph_22_percent,
+                        aa.pph_22_value,
+                        xx.biaya_admin,
+                        aa.harga_total_ppn_pph,
                         ii.pembayaran,                       
                         jj.name as nama_sales,
                         CASE WHEN hh.complete_payment = true THEN 'Lunas'
                         ELSE 'Belum Lunas' END as payment,
                         amount_total_outstanding,
-                        aa.updateindb,
-                        aa.company_id,
-                        aa.cabang_id,
-                        aa.status_release,
-                        kk.order_type
-                        
-                    FROM trans_inventory_subsidiary_sales_order aa
+                        xx.updateindb,
+                        xx.company_id,
+                        xx.cabang_id,
+                        xx.status_release,
+                        xx.order_type
+                    
+                    FROM trans_inventory_subsidiary_sales_order_header xx
+                    LEFT JOIN trans_inventory_subsidiary_sales_order aa on xx.id_trans = aa.id_trans
                     LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
                     LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
                     LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
                     LEFT JOIN master_company ee ON aa.company_id = ee.id_company
                     LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company
-					LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
+                    LEFT JOIN master_customer gg ON xx.customer_id = gg.id_customer
                     LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                     LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
-                    LEFT JOIN (select * from master_user where is_salesman = 't') jj ON aa.salesman = jj.id_user
-                    LEFT JOIN trans_inventory_subsidiary_sales_order_header kk ON aa.id_trans = kk.id_trans
+                    LEFT JOIN (select * from master_user where is_salesman = 't') jj ON xx.salesman = jj.id_user
                     )zz 
                     WHERE {where}
                     ORDER BY updateindb DESC
@@ -1612,7 +1639,7 @@ class c_subsidiary_inventory_sales_order(object):
         ws["S1"].value = "Pembayaran"
         ws["T1"].value = "SalesMan"
         ws["U1"].value = "Status Pembayaran"
-        ws["T1"].value = "Sisa Pembayaran"
+        ws["V1"].value = "Sisa Pembayaran"
 
         if len(result_data) > 0:
             data_key = []
@@ -1630,7 +1657,7 @@ class c_subsidiary_inventory_sales_order(object):
 
         for data in result_data:
             data_export = []
-            for key in data_key[:-4]:
+            for key in data_key[:-5]:
                 data_export.append(data[key])
             ws.append(data_export)
             i = i + 1

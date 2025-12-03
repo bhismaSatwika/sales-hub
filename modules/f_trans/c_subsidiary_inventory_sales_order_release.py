@@ -324,7 +324,7 @@ class c_subsidiary_inventory_sales_order_release(object):
         return data
 
     async def validate_release(self, id_trans):
-        sql = f"""SELECT count(*) count FROM trans_inventory_subsidiary_sales_order WHERE id_trans = '{id_trans}' AND status_release = TRUE"""
+        sql = f"""SELECT count(*) count FROM trans_inventory_subsidiary_sales_order_header WHERE id_trans = '{id_trans}' AND status_release = TRUE"""
         res = await self.db.executeToDict(sql)
         result = res[0]["count"]
         return result

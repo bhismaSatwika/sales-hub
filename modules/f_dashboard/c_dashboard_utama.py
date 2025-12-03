@@ -663,11 +663,11 @@ class c_dashboard_utama(object):
         filter_other_conj="",
     ):
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and c.status_release = true"""
         if int(company_id) == 1:
-            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"
+            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"""
 
         if orderby == None or orderby == "":
             orderby = "company_id, cabang_id, produk_id"
@@ -699,11 +699,12 @@ class c_dashboard_utama(object):
             FROM
             trans_inventory_subsidiary_invoice
             A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
+            LEFT JOIN trans_inventory_subsidiary_sales_order_header C on A.id_trans_sales_order = C.id_trans
             {where}
             GROUP BY
             B.produk_id,
-            company_id,
-            cabang_id 
+            B.company_id,
+            B.cabang_id 
         )
         A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
         LEFT JOIN master_company C ON A.company_id = C.id_company
@@ -728,11 +729,12 @@ class c_dashboard_utama(object):
             FROM
             trans_inventory_subsidiary_invoice
             A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
+            LEFT JOIN trans_inventory_subsidiary_sales_order_header C on A.id_trans_sales_order = C.id_trans
             {where}
             GROUP BY
             B.produk_id,
-            company_id,
-            cabang_id 
+            B.company_id,
+            B.cabang_id 
         )
         A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
         LEFT JOIN master_company C ON A.company_id = C.id_company
@@ -762,42 +764,45 @@ class c_dashboard_utama(object):
         tanggal=None,
         tanggal_start=None,
     ):
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and c.status_release = true"""
         if int(company_id) == 1:
-            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"
+            where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
+            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"""
 
         sql = f"""
-                    SELECT C.company_name,
-            D.cabang_name,
-            B.nama_produk,
-            A.total_qty,
-            A.total_sales,
-            A.total_outstanding 
+                SELECT C.company_name,
+        D.cabang_name,
+        B.nama_produk,
+        A.total_qty,
+        A.total_sales,
+        A.total_outstanding 
+        FROM
+        (
+            SELECT
+            B.company_id,
+            B.cabang_id,
+            B.produk_id,
+            SUM ( B.qty ) AS total_qty,
+            SUM ( amount_total ) AS total_sales,
+            SUM ( amount_total_outstanding ) AS total_outstanding 
             FROM
-            (
-                SELECT
-                B.company_id,
-                B.cabang_id,
-                B.produk_id,
-                SUM ( B.qty ) AS total_qty,
-                SUM ( amount_total ) AS total_sales,
-                SUM ( amount_total_outstanding ) AS total_outstanding 
-                FROM
-                trans_inventory_subsidiary_invoice
-                A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
-                {where}
-                GROUP BY
-                B.produk_id,
-                company_id,
-                cabang_id 
-            )
-            A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
-            LEFT JOIN master_company C ON A.company_id = C.id_company
-            LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
-            AND A.cabang_id = D.id_cabang
-            """
+            trans_inventory_subsidiary_invoice
+            A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
+            LEFT JOIN trans_inventory_subsidiary_sales_order_header C on A.id_trans_sales_order = C.id_trans
+            {where}
+            GROUP BY
+            B.produk_id,
+            B.company_id,
+            B.cabang_id 
+        )
+        A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
+        LEFT JOIN master_company C ON A.company_id = C.id_company
+        LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
+        AND A.cabang_id = D.id_cabang
+        """
+
+        print(sql)
 
         try:
             result = await self.db.executeToDict(sql)

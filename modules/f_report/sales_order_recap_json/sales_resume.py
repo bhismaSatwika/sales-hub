@@ -9,6 +9,7 @@ sales_resume = [
         "harga_sat_hpp": 15651.599609375,
         "margin_total": 87648300.59,
         "margin_percent": 6.239999771118164,
+        "uom_satuan": "Kg",
     },
     {
         "sales_total": 1221515000.0,
@@ -20,6 +21,7 @@ sales_resume = [
         "harga_sat_hpp": 738813.875,
         "margin_total": 69704175.51,
         "margin_percent": 5.710000038146973,
+        "uom_satuan": "Sak",
     },
     # {
     #     "sales_total": 16500.0,

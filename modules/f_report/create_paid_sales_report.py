@@ -79,7 +79,7 @@ class PDF(FPDF):
 
         self.cell(
             0,
-            7,
+            5,
             f'{self.convert_value(sales_data["nama_produk"])}',
             align="L",
             new_x="LMARGIN",

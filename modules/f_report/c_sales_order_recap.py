@@ -278,6 +278,7 @@ class c_sales_order_recap(object):
         sql_resume_sale = f"""SELECT
                 XX.*,
                 AA.nama_produk,
+                BB.uom_satuan,
                 round( sales_total / sales_qty, 2 ) :: FLOAT AS harga_sat_penj,
                 round( hpp / sales_qty, 2 ) :: FLOAT AS harga_sat_hpp,
                 sales_total - hpp AS margin_total,
@@ -298,10 +299,13 @@ class c_sales_order_recap(object):
                     GROUP BY
                 produk_id 
                 ) xx
-            LEFT JOIN master_produk AA on AA.id_produk = XX.produk_id"""
+            LEFT JOIN master_produk AA on AA.id_produk = XX.produk_id
+            LEFT JOIN master_produk_uom_satuan BB on AA.uom_satuan = BB.id_uom_satuan
+            """
 
         sql_resume_inventory = f"""SELECT aa.*,
-  bb.nama_produk,
+                        bb.uom_satuan,
+                        bb.nama_produk,
                             round(total_hpp/inv_qty,2)::FLOAT as harga_satuan FROM
                             (
                             SELECT
@@ -313,6 +317,7 @@ class c_sales_order_recap(object):
                             GROUP BY produk_id
                             ) aa
                             LEFT JOIN master_produk bb on aa.produk_id = bb.id_produk
+                            LEFT JOIN master_produk_uom_satuan cc on bb.uom_satuan = cc.id_uom_satuan
                             """
 
         sql_detail_sales = f"""	SELECT aa.invoice_number,
