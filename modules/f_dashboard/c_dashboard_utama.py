@@ -69,7 +69,7 @@ class c_dashboard_utama(object):
         sql = f"""SELECT SUM (AA.amount) AS harga_total 
                 FROM
                 trans_inventory_subsidiary_invoice aa
-                LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header bb ON bb.id_trans = aa.id_trans_sales_order
                 {where}
             """
 
@@ -106,7 +106,7 @@ class c_dashboard_utama(object):
                 ( amount_total_outstanding ) AS outstanding_payment 
                 FROM
                 trans_inventory_subsidiary_invoice aa
-                LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header bb ON bb.id_trans = aa.id_trans_sales_order
                 {where}
                 """
         print(sql)
@@ -149,7 +149,7 @@ class c_dashboard_utama(object):
                 ( amount_total ) - SUM ( amount_total_outstanding ) AS nominal_total
                 FROM
                 trans_inventory_subsidiary_invoice aa
-                LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header bb ON bb.id_trans = aa.id_trans_sales_order
                 {where}
                 {gb}
                 """
@@ -222,7 +222,7 @@ class c_dashboard_utama(object):
                             date_part('month', aa.tanggal_invoice) as  MONTH,
                             date_part('year', aa.tanggal_invoice) as year FROM
                             trans_inventory_subsidiary_invoice aa
-                            LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order
+                            LEFT JOIN trans_inventory_subsidiary_sales_order_header bb ON bb.id_trans = aa.id_trans_sales_order
                             {and_filter}
                             GROUP BY month, year
                         ) B ON A.month_ = B.MONTH AND A.year_ = B.year
@@ -233,7 +233,7 @@ class c_dashboard_utama(object):
                             date_part( 'year', payment_last_updated ) AS year 
                             FROM
                             trans_inventory_subsidiary_invoice aa
-                            LEFT JOIN trans_inventory_subsidiary_sales_order bb ON bb.id_trans = aa.id_trans_sales_order 
+                            LEFT JOIN trans_inventory_subsidiary_sales_order_header bb ON bb.id_trans = aa.id_trans_sales_order 
                             {and_filter}
                             GROUP BY
                             MONTH, year
@@ -607,7 +607,7 @@ class c_dashboard_utama(object):
 
         sql = f"""
                     SELECT sum(b.biaya_admin) as total from trans_inventory_subsidiary_invoice a 
-                    LEFT JOIN trans_inventory_subsidiary_sales_order b on a.id_trans_sales_order = b.id_trans
+                    LEFT JOIN trans_inventory_subsidiary_sales_order_header b on a.id_trans_sales_order = b.id_trans
                     {where}
         """
 
