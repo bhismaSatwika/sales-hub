@@ -663,11 +663,11 @@ class c_dashboard_utama(object):
         filter_other_conj="",
     ):
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and c.status_release = true"""
+        where = f"""WHERE c.company_id = {company_id} AND c.cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and c.status_release = true"""
         if int(company_id) == 1:
             where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"""
+            where = f"""WHERE c.company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"""
 
         if orderby == None or orderby == "":
             orderby = "company_id, cabang_id, produk_id"
@@ -679,8 +679,7 @@ class c_dashboard_utama(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = (
-            f"""
+        query = f"""
                 SELECT C.company_name,
         D.cabang_name,
         B.nama_produk,
@@ -711,41 +710,13 @@ class c_dashboard_utama(object):
         LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
         AND A.cabang_id = D.id_cabang
         """
-            + str_clause
-        )
-
-        sql_count = (
-            f"""
-                 SELECT Count(A.*) as count
-        FROM
-        (
-            SELECT
-            B.company_id,
-            B.cabang_id,
-            B.produk_id,
-            SUM ( B.qty ) AS total_qty,
-            SUM ( amount_total ) AS total_sales,
-            SUM ( amount_total_outstanding ) AS total_outstanding 
-            FROM
-            trans_inventory_subsidiary_invoice
-            A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = B.id_trans 
-            LEFT JOIN trans_inventory_subsidiary_sales_order_header C on A.id_trans_sales_order = C.id_trans
-            {where}
-            GROUP BY
-            B.produk_id,
-            B.company_id,
-            B.cabang_id 
-        )
-        A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
-        LEFT JOIN master_company C ON A.company_id = C.id_company
-        LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
-        AND A.cabang_id = D.id_cabang
-        """
-            + str_clause_count
-        )
-
+        sql = query + str_clause
         print(sql)
 
+        sql_2 = query + str_clause_count
+
+        sql_count = f"""SELECT COUNT(*) 
+        FROM ({sql_2})  as subquery"""
         try:
             result = await self.db.executeToDict(sql)
             result_count = await self.db.executeToDict(sql_count)
@@ -764,11 +735,11 @@ class c_dashboard_utama(object):
         tanggal=None,
         tanggal_start=None,
     ):
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and c.status_release = true"""
+        where = f"""WHERE c.company_id = {company_id} AND c.cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and c.status_release = true"""
         if int(company_id) == 1:
             where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"""
+            where = f"""WHERE c.company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and c.status_release = true"""
 
         sql = f"""
                 SELECT C.company_name,
@@ -926,11 +897,11 @@ class c_dashboard_utama(object):
         tanggal=None,
         tanggal_start=None,
     ):
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
+        where = f"""WHERE c.company_id = {company_id} AND c.cabang_id = {cabang_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}' and b.status_release = true"""
         if int(company_id) == 1:
             where = f"WHERE tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
+            where = f"""WHERE c.company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and b.status_release = true"""
         sql = f"""
         SELECT B.nama_produk, A.* FROM (
             SELECT A.produk_id, SUM(A.qty) total_qty,SUM(amount_total) as amount_total, SUM(amount_total_outstanding) as outstanding from trans_inventory_subsidiary_invoice Z

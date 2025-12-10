@@ -1283,7 +1283,7 @@ class c_subsidiary_inventory_sales_order(object):
                             ff.id_trans as no_invoice,
                             ff.tanggal_invoice,
                             gg.nama_customer,
-                            gg.alamat,
+                            CASE when gg.alamat is null THEN '-' ELSE gg.alamat end,
                             gg.account_va,
                             gg.no_hp,
                             ff.tanggal_due_date,
@@ -1592,7 +1592,7 @@ class c_subsidiary_inventory_sales_order(object):
                     LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company
                     LEFT JOIN master_customer gg ON xx.customer_id = gg.id_customer
                     LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
-                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
+                    LEFT JOIN master_jenis_pembayaran ii ON xx.id_pembayaran = ii.id_pembayaran
                     LEFT JOIN (select * from master_user where is_salesman = 't') jj ON xx.salesman = jj.id_user
                     )zz 
                     WHERE {where}

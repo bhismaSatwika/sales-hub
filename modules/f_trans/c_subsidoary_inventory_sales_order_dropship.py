@@ -11,18 +11,17 @@ from library.router import app
 from library.db import Db
 from library import *
 import os
-from modules import f_master
-from modules import f_trans
-import asyncio
 from modules.f_trans.sales_order_create_pdf import PDF
 from modules.f_trans.delivery_order_create_pdf import PDF as PDF_DO
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill, Font
+from modules.apps.util.paid_payment import paid_payment
 
 
 class c_subsidiary_inventory_sales_order_dropship(object):
     def __init__(self):
         self.db = Db()
+        self.paid_payment = paid_payment()
         self.kendoParse = kendo_parse.KendoParse
 
     async def read(
@@ -1121,6 +1120,8 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
     async def request_approve(self, data):
 
+        await self.paid_payment.validasi_paid_payment(data)
+
         queries = []
         if data["status_release"] == True:
             sql = f"""
@@ -1157,7 +1158,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             '{data["salesman"]}' as issued_by
         FROM master_approval A
         LEFT JOIN master_user B on A.issued_by = B.username
-        WHERE b.id_user = '{data["salesman"]}'"""
+        WHERE b.id_user = '{data["salesman"]}' and a.release=true and a.active = true"""
         queries.append(sql_detail_approval)
         print(sql_detail_approval)
 
@@ -1176,7 +1177,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         sql = f"""SELECT id from master_approval A
         LEFT JOIN master_user B on A.issued_by = B.username
-        where id_user = '{salesman}'"""
+        where id_user = '{salesman}' and a.active = true"""
         message = ""
 
         data = await self.db.executeToDict(sql)

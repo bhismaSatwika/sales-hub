@@ -88,12 +88,13 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
                     LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                     LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran 
-                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans = jj.id_trans_sales_order
+                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans_sales_order = jj.id_trans_sales_order
                 ) A
              
                """
             + str_clause
         )
+        print(sql)
 
         sql_count = (
             f"""SELECT
@@ -132,7 +133,7 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
                     LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                     LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
-                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans = jj.id_trans_sales_order
+                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans_sales_order = jj.id_trans_sales_order
                 ) A
                 """
             + str_clause_count
@@ -414,6 +415,19 @@ class c_trans_inventory_holding_delivery_preparation(object):
             print(str(e))
             raise HTTPException(400, ("The error is: ", str(e)))
 
+    def get_content_type(self, file_path):
+        # Get the MIME type based on the file extension
+        mime_type, _ = mimetypes.guess_type(file_path)
+        # If the MIME type cannot be guessed, fallback to 'application/octet-stream'
+        return mime_type if mime_type else "application/octet-stream"
+
+    async def stream_file(self, path, filename):
+        try:
+            content_type = self.get_content_type(path)
+            return FileResponse(path, media_type=content_type, filename=filename)
+        except Exception as e:
+            raise HTTPException(400, "The error is: " + str(e))
+
 
 """
 list your path url at bottom
@@ -509,7 +523,7 @@ async def get_td_files(id_trans: str = Query(None, alias="id_trans")):
 @app.get("/api/f_trans/c_trans_inventory_holding_delivery_preparation/stream_file")
 async def stream_file(filename: str = Query(None, alias="filename")):
     ob_data = c_trans_inventory_holding_delivery_preparation()
-    path_parent = params.loc["file_inventory_sales_order"]
+    path_parent = params.loc["file_delivery_preparation"]
     path = path_parent + "/" + filename
     return await ob_data.stream_file(path, filename)
 

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 from fastapi import HTTPException, Request
 from fastapi.responses import StreamingResponse
+from modules.apps.util.paid_payment import paid_payment
 
 from library import *
 import os
@@ -17,6 +18,7 @@ import hashlib
 class c_subsidiary_inventory_sales_order_release(object):
     def __init__(self):
         self.db = Db()
+        self.paid_payment = paid_payment()
         self.id_trans_mutasi = ""
         self.detail_data_mutasi = {}
         self.sales_order = {}
@@ -344,7 +346,7 @@ class c_subsidiary_inventory_sales_order_release(object):
         )
 
         ## validasi payment
-        await self.validasi_paid_payment(data)
+        await self.paid_payment.validasi_paid_payment(data)
 
         # Mengambil data sales order untuk diinsert ke tabel mutasi
         # save id dari insert mutasinya
@@ -446,48 +448,6 @@ class c_subsidiary_inventory_sales_order_release(object):
 
         except Exception as e:
             message = "Error ketika melakukan validasi stok: " + message + str(e)
-            raise HTTPException(
-                status_code=400,
-                detail=message,
-            )
-
-    async def validasi_paid_payment(self, data):
-        sql = f"""
-            SELECT A.*, B.nama_customer FROM (
-            SELECT customer_id, sum(amount_total_outstanding) from trans_inventory_subsidiary_invoice
-            WHERE customer_id = '{data['customer_id']}'
-            GROUP BY customer_id ) A 
-            LEFT JOIN master_customer B on A.customer_id = B.id_customer
-        """
-        print("query payment", sql)
-
-        message = ""
-        try:
-            result = await self.db.executeToDict(sql)
-            print("result:", result)
-
-            if len(result) == 0:
-                return "Success"
-            else:
-
-                sum = result[0]["sum"]
-
-                print("sum:", sum)
-
-                if sum == None:
-                    sum = 0
-
-                if sum > 0:
-                    customer_name = result[0]["nama_customer"]
-                    message = f"Ada payment pada customer {customer_name} yang belum lunas. Cek payment!"
-                    raise HTTPException(
-                        status_code=400,
-                        detail=message,
-                    )
-
-        except Exception as e:
-            print(message + str(e))
-            message = "Gagal ketika rilis sales order: " + message + str(e)
             raise HTTPException(
                 status_code=400,
                 detail=message,

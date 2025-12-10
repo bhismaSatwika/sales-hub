@@ -58,8 +58,7 @@ class c_salesman_report(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        query = (
-            f"""
+        query = f"""
             SELECT
             B.username,
                 B.NAME,
@@ -71,7 +70,7 @@ class c_salesman_report(object):
                 FROM
                 (
                     SELECT
-                    b.salesman,
+                    c.salesman,
                     SUM ( A.amount_total ) AS total_sales,
                     SUM ( CASE WHEN A.tanggal_invoice BETWEEN '{year}-{month}-01' AND '{tanggal}' THEN A.amount_total ELSE 0 END ) AS monthly_sales,
                     SUM ( A.amount_total_outstanding ) AS total_outstanding,
@@ -83,53 +82,28 @@ class c_salesman_report(object):
                 FROM
                 trans_inventory_subsidiary_invoice
                 A LEFT JOIN trans_inventory_subsidiary_sales_order b ON A.id_trans_sales_order = b.id_trans 
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header C ON A.id_trans_sales_order = C.id_trans 
                 
                 WHERE
-                b.status_release = TRUE 
+                c.status_release = TRUE 
                 GROUP BY
-                b.salesman 
+                c.salesman 
                 )
                 A LEFT JOIN master_user B ON A.salesman = B.id_user
                 LEFT JOIN master_company c ON c.id_company = b.company_id 
                 LEFT JOIN master_company_cabang d ON d.id_cabang = b.cabang_id and d.id_company = b.company_id
         """
-            + str_clause
-        )
 
-        query_count = (
-            f"""
-           SELECT
-            COUNT(*)
-            FROM
-            (
-                SELECT
-                b.salesman,
-                SUM ( A.amount_total ) AS total_sales,
-                SUM ( CASE WHEN A.tanggal_invoice BETWEEN '2025-10-01' AND '2025-10-30' THEN A.amount_total ELSE 0 END ) AS month_sales,
-                SUM ( A.amount_total_outstanding ) AS total_outstanding,
-            SUM ( CASE WHEN '{tanggal}' :: DATE - A.tanggal_due_date <= 0 THEN amount_total_outstanding ELSE 0 END ) no_due_date,
-            SUM ( CASE WHEN '{tanggal}':: DATE - A.tanggal_due_date between 1 and 15  THEN amount_total_outstanding ELSE 0 END ) AS overdue_less_15,
-            SUM ( CASE WHEN '{tanggal}':: DATE - A.tanggal_due_date > 15 THEN amount_total_outstanding ELSE 0 END ) AS overdue_more_15,
-            SUM ( CASE WHEN '{tanggal}':: DATE - A.tanggal_due_date > 0 THEN amount_total_outstanding ELSE 0 END ) AS total_overdue,
-            SUM ( A.amount_total - A.amount_total_outstanding ) AS total_paid 
-            FROM
-            trans_inventory_subsidiary_invoice
-            A LEFT JOIN trans_inventory_subsidiary_sales_order b ON A.id_trans_sales_order = b.id_trans 
-            WHERE
-            b.status_release = TRUE 
-            GROUP BY
-            b.salesman 
-            )
-            A LEFT JOIN master_user B ON A.salesman = B.id_user
-          """
-            + str_clause_count
-        )
+        sql = query + str_clause
+        print(sql)
 
-        print(query)
-        # print(query_count)
+        sql_2 = query + str_clause_count
 
-        result = await self.db.executeToDict(query)
-        result_count = await self.db.executeToDict(query_count)
+        sql_count = f"""SELECT COUNT(*) 
+        FROM ({sql_2})  as subquery"""
+
+        result = await self.db.executeToDict(sql)
+        result_count = await self.db.executeToDict(sql_count)
         data = {"data": result, "total": result_count[0]["count"]}
         return data
 
@@ -174,43 +148,30 @@ class c_salesman_report(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = (
-            f"""
+        query = f"""
             SELECT A
         .id_trans,
         D.nama_customer,
         A.amount_total,
         A.amount_total_outstanding,
-        
         A.tanggal_due_date,
         D.no_ktp,
         D.alamat,
         D.npwp 
         FROM
         trans_inventory_subsidiary_invoice
-        A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = b.id_trans
+        A LEFT JOIN trans_inventory_subsidiary_sales_order_header B ON A.id_trans_sales_order = b.id_trans
         LEFT JOIN master_customer D ON B.customer_id = D.id_customer 
         WHERE
         {where}
         """
-            + str_clause
-        )
 
-        sql_count = (
-            f"""
-        SELECT
-        COUNT(*)
-        FROM
-        trans_inventory_subsidiary_invoice
-        A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = b.id_trans
-        LEFT JOIN master_customer D ON B.customer_id = D.id_customer 
-        WHERE
-        {where}
-        """
-            + str_clause_count
-        )
+        sql = query + str_clause
 
-        print(sql)
+        sql_2 = query + str_clause_count
+
+        sql_count = f"""SELECT COUNT(*) 
+        FROM ({sql_2})  as subquery"""
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
@@ -251,9 +212,9 @@ class c_salesman_report(object):
                 FROM
                 (
                     SELECT
-                    b.salesman,
-                    SUM ( A.amount ) AS total_sales,
-                    SUM ( CASE WHEN A.tanggal_invoice BETWEEN '{year}-{month}-01' AND '{tanggal}' THEN A.amount ELSE 0 END ) AS monthly_sales,
+                    c.salesman,
+                    SUM ( A.amount_total ) AS total_sales,
+                    SUM ( CASE WHEN A.tanggal_invoice BETWEEN '{year}-{month}-01' AND '{tanggal}' THEN A.amount_total ELSE 0 END ) AS monthly_sales,
                     SUM ( A.amount_total_outstanding ) AS total_outstanding,
                 SUM ( CASE WHEN '{tanggal}' :: DATE - A.tanggal_due_date <= 0 THEN amount_total_outstanding ELSE 0 END ) no_due_date,
                 SUM ( CASE WHEN '{tanggal}':: DATE - A.tanggal_due_date between 1 and 15  THEN amount_total_outstanding ELSE 0 END ) AS overdue_less_15,
@@ -263,18 +224,16 @@ class c_salesman_report(object):
                 FROM
                 trans_inventory_subsidiary_invoice
                 A LEFT JOIN trans_inventory_subsidiary_sales_order b ON A.id_trans_sales_order = b.id_trans 
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header C ON A.id_trans_sales_order = C.id_trans 
                 
                 WHERE
                 b.status_release = TRUE 
-                {where}
                 GROUP BY
-                b.salesman 
+                c.salesman 
                 )
                 A LEFT JOIN master_user B ON A.salesman = B.id_user
                 LEFT JOIN master_company c ON c.id_company = b.company_id 
                 LEFT JOIN master_company_cabang d ON d.id_cabang = b.cabang_id and d.id_company = b.company_id
-                
-                ORDER BY B.company_id, B.cabang_id, A.salesman
         """
         result = await self.db.executeToDict(sql)
         print(sql)
@@ -372,7 +331,7 @@ class c_salesman_report(object):
         D.npwp
         FROM
         trans_inventory_subsidiary_invoice
-        A LEFT JOIN trans_inventory_subsidiary_sales_order B ON A.id_trans_sales_order = b.id_trans
+        A LEFT JOIN trans_inventory_subsidiary_sales_order_header B ON A.id_trans_sales_order = b.id_trans
         LEFT JOIN master_produk C ON B.produk_id = C.id_produk
         LEFT JOIN master_customer D ON B.customer_id = D.id_customer
         WHERE

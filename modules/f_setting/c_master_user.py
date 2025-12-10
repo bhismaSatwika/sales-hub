@@ -98,7 +98,7 @@ class c_master_user(object):
                     FROM master_user aa
                     LEFT JOIN master_user_role bb ON aa.user_role = bb.id_role
                     LEFT JOIN master_company cc ON aa.company_id = cc.id_company
-                    LEFT JOIN master_company_cabang dd ON aa.cabang_id = dd.id_cabang) x"""
+                    LEFT JOIN master_company_cabang dd ON aa.cabang_id = dd.id_cabang and aa.company_id = dd.id_company) x"""
             + str_clause
         )
 
@@ -127,7 +127,7 @@ class c_master_user(object):
                         FROM master_user aa
                         LEFT JOIN master_user_role bb ON aa.user_role = bb.id_role
                         LEFT JOIN master_company cc ON aa.company_id = cc.id_company
-                        LEFT JOIN master_company_cabang dd ON aa.cabang_id = dd.id_cabang
+                         LEFT JOIN master_company_cabang dd ON aa.cabang_id = dd.id_cabang and aa.company_id = dd.id_company
                         ) x"""
             + str_clause_count
         )
