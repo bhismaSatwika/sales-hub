@@ -28,7 +28,7 @@ class c_paid_sales_report(object):
             """
 
             filter_branch_detail = f"""
-                WHERE date_part('month', tanggal_invoice) = {month} AND date_part('year', tanggal_invoice) = {year} AND company_id = {company_id} 
+                WHERE date_part('month', payment_last_updated) = {month} AND date_part('year', payment_last_updated) = {year} AND company_id = {company_id} 
             """
 
             filter_detail = f"""
@@ -63,6 +63,7 @@ class c_paid_sales_report(object):
             LEFT JOIN master_company z on x.company_id = z.id_company
 
             """
+        print(sql_header)
 
         sql_payment_per_company = f"""
             SELECT
@@ -95,7 +96,9 @@ class c_paid_sales_report(object):
                 LEFT JOIN master_company C ON A.company_id = C.id_company
                 LEFT JOIN master_company_cabang D ON A.company_id = D.id_company 
                 AND A.cabang_id = D.id_cabang
+                ORDER BY company_id, cabang_id, produk_id
         """
+        print(sql_payment_per_company)
 
         sql_detail = f"""
             SELECT
@@ -112,12 +115,12 @@ class c_paid_sales_report(object):
                 ee.harga_total_hpp,
                 ee.harga_total - ee.harga_total_hpp AS margin,
                 round( ( ( ee.harga_total - ee.harga_total_hpp ) * 100 / ee.harga_total :: FLOAT ) :: NUMERIC, 2 ) AS percent_margin,
-                aa.amount - aa.amount_total_outstanding AS paid_sales 
+                aa.amount_total - aa.amount_total_outstanding AS paid_sales 
                 FROM
                 trans_inventory_subsidiary_invoice aa
                 LEFT JOIN master_customer bb ON aa.customer_id = bb.id_customer
                 LEFT JOIN master_jenis_pembayaran dd ON aa.id_pembayaran = dd.id_pembayaran
-                LEFT JOIN trans_inventory_subsidiary_sales_order ee ON aa.id_trans_sales_order = ee.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header ee ON aa.id_trans_sales_order = ee.id_trans
                 LEFT JOIN master_company gg ON ee.company_id = gg.id_company
                 LEFT JOIN master_company_cabang hh ON ee.cabang_id = hh.id_cabang
                 LEFT JOIN ( SELECT id_user, NAME FROM master_user WHERE is_salesman = 't' ) ii ON ee.salesman = ii.id_user
@@ -126,6 +129,7 @@ class c_paid_sales_report(object):
             AND aa.amount_total != aa.amount_total_outstanding 
             ) XX
                                         """
+        print(sql_detail)
 
         print("\n\n\n", sql_detail)
         print("\n\n\n", sql_header)

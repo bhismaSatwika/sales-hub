@@ -110,7 +110,7 @@ class c_master_customer(object):
         {where_sql}
         ORDER BY 
             id_customer ASC 
-        LIMIT 100;"""
+        LIMIT 20;"""
 
         print(sql)
         result = await self.db.executeToDict(sql)

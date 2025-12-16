@@ -15,12 +15,14 @@ from modules.f_trans.delivery_order_create_pdf import PDF as PDF_DO
 class c_subsidiary_inventory_sales_order_dropship_release(object):
     def __init__(self):
         self.db = Db()
-        self.sales_order = {}
+        self.invoice_pre_payment = {}
         self.data_kode_do = {}
 
     async def receive(self, data):
+        await self.check_payment(data["id_trans"])
         sql_insert_mutasi = self.insert_mutasi(data["id_trans"])
         sql_update_delivery = self.update_delivery(data["id_delivery"])
+        await self.get_pre_payment_data(data["id_trans"])
         sql_insert_do = await self.insert_delivery_order(data)
         sql_insert_invoice = await self.insert_invoice_order()
         # print(sql_insert_invoice)
@@ -208,18 +210,40 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
 
         return data_kode
 
+    async def get_pre_payment_data(self, data):
+        sql_invoice_pre_payment = f"""SELECT A.*, B.company_id, B.cabang_id FROM trans_inventory_subsidiary_invoice_pre_payment A
+        LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
+        WHERE id_trans_sales_order = '{data}'"""
+        result_inv_sales_order = await self.db.executeToDict(sql_invoice_pre_payment)
+        invoice_pre_payment = result_inv_sales_order[0]
+        self.invoice_pre_payment = invoice_pre_payment
+
+    async def check_payment(self, id_trans):
+        sql = f"""
+                SELECT complete_payment FROM trans_inventory_subsidiary_invoice_pre_payment A
+        WHERE id_trans_sales_order = '{id_trans}'
+        """
+        print(sql)
+
+        result = await self.db.executeToDict(sql)
+        res = result[0]["complete_payment"]
+        print(result)
+        if res == False:
+            raise HTTPException(
+                400, "Harap lunaskan pembayaran terlebih dahulu untuk order ini"
+            )
+
     async def insert_delivery_order(self, data):
         tanggal = datetime.today()
         tahun = tanggal.year
         bulan = tanggal.month
 
-        sql_inv_sales_order = f"""SELECT * FROM trans_inventory_subsidiary_sales_order_header WHERE id_trans = '{data['id_trans']}'"""
-        result_inv_sales_order = await self.db.executeToDict(sql_inv_sales_order)
-        sales_order = result_inv_sales_order[0]
-        self.sales_order = sales_order
-
         data_kode_do = await self.get_id_trans_kode_do(
-            sales_order["company_id"], sales_order["cabang_id"], "DO", tahun, bulan
+            self.invoice_pre_payment["company_id"],
+            self.invoice_pre_payment["cabang_id"],
+            "DO",
+            tahun,
+            bulan,
         )
 
         self.data_kode_do = data_kode_do
@@ -229,7 +253,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
             "userupdate": auth.AuthAction.get_data_params("username"),
             "status_release": False,
             "tanggal_do": tanggal,
-            "id_trans_sales_order": sales_order["id_trans"],
+            "id_trans_sales_order": self.invoice_pre_payment["id_trans_sales_order"],
             "id_trans": data_kode_do["id_trans"],
             "no_urut": data_kode_do["no_urut"],
         }
@@ -246,8 +270,8 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         bulan = tanggal.month
 
         data_kode_iv = await self.get_id_trans_kode_invoice(
-            self.sales_order["company_id"],
-            self.sales_order["cabang_id"],
+            self.invoice_pre_payment["company_id"],
+            self.invoice_pre_payment["cabang_id"],
             "INV",
             tahun,
             bulan,
@@ -256,7 +280,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         new_date = tanggal + timedelta(days=7)
         id_trans_md5 = hashlib.md5(data_kode_iv["id_trans"].encode()).hexdigest()
 
-        if int(self.sales_order["id_pembayaran"]) == 1:
+        if int(self.invoice_pre_payment["id_pembayaran"]) == 1:
             new_date = tanggal + timedelta(days=1)
 
         data_invoice = {
@@ -265,20 +289,24 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
             "userupdate": auth.AuthAction.get_data_params("username"),
             "status_release": False,
             "tanggal_invoice": tanggal,
-            "id_trans_sales_order": self.sales_order["id_trans"],
+            "id_trans_sales_order": self.invoice_pre_payment["id_trans_sales_order"],
             "id_trans_delivery_order": self.data_kode_do["id_trans"],
             "status_invoice": True,
             "no_urut": data_kode_iv["no_urut"],
             "tanggal_due_date": new_date,
-            "amount": self.sales_order["harga_total"],
-            "amount_ppn": self.sales_order["total_ppn"],
-            "amount_pph": self.sales_order["total_pph"],
+            "amount": self.invoice_pre_payment["amount"],
+            "amount_ppn": self.invoice_pre_payment["amount_ppn"],
+            "amount_pph": self.invoice_pre_payment["amount_pph"],
             "md5_file": id_trans_md5,
-            "amount_total": self.sales_order["harga_total_ppn_pph"],
-            "amount_total_outstanding": self.sales_order["harga_total_ppn_pph"],
-            "customer_id": self.sales_order["customer_id"],
-            "id_pembayaran": self.sales_order["id_pembayaran"],
-            "biaya_admin": self.sales_order["biaya_admin"],
+            "amount_total": self.invoice_pre_payment["amount_total"],
+            "amount_total_outstanding": self.invoice_pre_payment[
+                "amount_total_outstanding"
+            ],
+            "customer_id": self.invoice_pre_payment["customer_id"],
+            "id_pembayaran": self.invoice_pre_payment["id_pembayaran"],
+            "biaya_admin": self.invoice_pre_payment["biaya_admin"],
+            "complete_payment": self.invoice_pre_payment["complete_payment"],
+            "reference_pre_payment": self.invoice_pre_payment["id_trans"],
         }
 
         sql_insert_invoice = self.db.genStrInsertSingleObject(
