@@ -377,17 +377,38 @@ class c_trans_inventory_holding_delivery_preparation(object):
             "updateindb": datetime.today(),
             "status_release": True,
         }
-        data.update()
+
+        update_sales_order_hpp = f"""
+            UPDATE trans_inventory_subsidiary_sales_order A
+        SET
+            harga_satuan_hpp = C.harga_satuan,
+            harga_total_hpp  = C.harga_total
+        FROM trans_inventory_holding_delivery_preparation_header B
+        JOIN trans_inventory_holding_delivery_preparation C
+            ON B.id_trans = C.id_trans
+        WHERE A.id_trans = B.id_trans_sales_order AND A.produk_id = C.produk_id
+        AND B.id_trans = 'NUS.12.DLV.2025.12.0001';
+        
+        """
+
+        update_sales_order_header_hpp = f"""
+        UPDATE trans_inventory_subsidiary_sales_order_header A
+        SET
+            harga_total_hpp = B.harga_total
+        FROM trans_inventory_holding_delivery_preparation_header B
+        WHERE A.id_trans = B.id_trans_sales_order
+        AND B.id_trans = 'NUS.12.DLV.2025.12.0001';"""
 
         sql = self.db.genUpdateObject(
             data_update,
             data,
             "trans_inventory_holding_delivery_preparation_header",
         )
-        print(sql)
 
         try:
-            await self.db.executeQuery(sql)
+            await self.db.executeTrans(
+                [sql, update_sales_order_hpp, update_sales_order_header_hpp]
+            )
 
             return "success"
 
