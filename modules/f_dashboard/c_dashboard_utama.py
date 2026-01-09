@@ -20,12 +20,12 @@ class c_dashboard_utama(object):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '2025-01-01' AND '{tanggal}'"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
+            where = f"""WHERE tanggal BETWEEN '2025-01-01' AND '{tanggal}'"""
         elif int(company_id) == 2 and int(cabang_id) == 11:
-            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '2025-01-01' AND '{tanggal}'"""
 
         sql = f"""SELECT sum(ht) as qty
             FROM
@@ -191,8 +191,7 @@ class c_dashboard_utama(object):
                             month_,
                             year_ 
                         ORDER BY
-                            month_,  
-                            year_"""
+                            year_, month_"""
 
         sql_chart_value = f"""SELECT 
                         B.total,
@@ -441,8 +440,8 @@ class c_dashboard_utama(object):
                     bb.nama_customer,
                     sum(amount_total_outstanding) as total_outstanding,
                     sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date <= 0 then amount_total_outstanding else 0 end) no_due_date,
-                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 1 and 30 then amount_total_outstanding else 0 end) _1_30,
-                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 31 and 60 then amount_total_outstanding else 0 end) _31_60,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 1 and 21 then amount_total_outstanding else 0 end) _1_21,
+                    sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 22 and 60 then amount_total_outstanding else 0 end) _22_60,
                     sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date BETWEEN 60 and 90 then amount_total_outstanding else 0 end) _60_90,
                     sum(case when '{data_tanggal}'::DATE - aa.tanggal_due_date > 90 then amount_total_outstanding else 0 end) _90
                     FROM
@@ -486,8 +485,8 @@ class c_dashboard_utama(object):
         ws["D1"].value = "Nama Customer"
         ws["E1"].value = "Total Outstanding"
         ws["F1"].value = "No Due Date"
-        ws["G1"].value = "1 - 30"
-        ws["H1"].value = "31 - 60"
+        ws["G1"].value = "1 - 21"
+        ws["H1"].value = "22 - 60"
         ws["I1"].value = "61 - 90"
         ws["J1"].value = "> 90"
 

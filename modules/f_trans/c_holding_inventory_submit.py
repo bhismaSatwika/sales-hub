@@ -31,8 +31,7 @@ class c_holding_inventory_submit(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = (
-            f"""SELECT * FROM (
+        query = f"""SELECT * FROM (
                     SELECT 
                         aa.id_trans,
                         bb.id_produk as produk_id,
@@ -67,22 +66,13 @@ class c_holding_inventory_submit(object):
                     LEFT JOIN master_company ee ON aa.company_id = ee.id_company
                     LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang and aa.company_id = ff.id_company
                 ) zz """
-            + str_clause
-        )
 
-        sql_count = (
-            f"""SELECT count(*) count FROM (
-                     SELECT 
-                        aa.*
-                    FROM trans_inventory_holding_submit aa
-                    LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
-                    LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
-                    LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
-                    LEFT JOIN master_company ee ON aa.company_id = ee.id_company
-                    LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang and aa.company_id = ff.id_company
-                ) zz """
-            + str_clause_count
-        )
+        sql = query + str_clause
+
+        sql_2 = query + str_clause_count
+
+        sql_count = f"""SELECT COUNT(*) 
+        FROM ({sql_2})  as subquery"""
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)

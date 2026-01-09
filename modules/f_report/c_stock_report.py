@@ -18,14 +18,27 @@ class c_stock_report(object):
 
     async def generate_report(self):
         query = f"""
-            SELECT B.company_name, C.cabang_name, D.nama_produk, A.qty_received, qty_transfered, qty_sold, qty_received - qty_transfered - qty_sold as qty_current FROM (
+            SELECT
+  B.company_name,
+  C.cabang_name,
+  D.nama_produk,
+  qty_submitted,
+  A.qty_received,
+  qty_transfered,
+  qty_dropship,
+  qty_sold,
+  qty_submitted + qty_received + qty_dropship - qty_transfered - qty_sold AS qty_current 
+FROM
+  (
         SELECT 
             company_id, cabang_id, produk_id,
+            SUM( CASE WHEN mutasi_type = 'ST' AND in_out = 'IN' AND company_id = 1 THEN qty ELSE 0 END) qty_submitted,
             SUM( CASE WHEN mutasi_type = 'TP' AND in_out = 'IN' THEN qty ELSE 0 END) qty_received,
             SUM( CASE WHEN mutasi_type = 'TP' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_transfered,
-            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_sold
+            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_sold,
+            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' AND company_id !=1 AND tabel_reference = 'trans_inventory_holding_delivery_preparation_header' THEN qty ELSE 0 END) qty_dropship
         FROM trans_inventory_detail_mutasi
-        WHERE company_id != 1
+--         WHERE company_id != 1
         GROUP BY company_id, cabang_id, produk_id
         ) A
         LEFT JOIN master_company B on A.company_id = B.id_company
@@ -52,10 +65,12 @@ class c_stock_report(object):
         ws["A1"].value = "Nama Company"
         ws["B1"].value = "Nama Cabang"
         ws["C1"].value = "Nama Produk"
-        ws["D1"].value = "Quantity Received"
-        ws["E1"].value = "Quantity Trasnfered"
-        ws["F1"].value = "Quantity Terjual"
-        ws["G1"].value = "Quantity Sekarang"
+        ws["D1"].value = "Quantity Submitted"
+        ws["E1"].value = "Quantity Received"
+        ws["F1"].value = "Quantity Trasnfered"
+        ws["G1"].value = "Quantity Dropship"
+        ws["H1"].value = "Quantity Terjual"
+        ws["I1"].value = "Quantity Sekarang"
 
         if len(result_data) > 0:
             data_key = []

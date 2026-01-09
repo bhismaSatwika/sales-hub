@@ -57,7 +57,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         INSERT INTO trans_inventory_detail_mutasi (id_references, produk_id, company_id, cabang_id, qty, harga_satuan, harga_total, in_out, mutasi_type, updateindb, userupdate, tabel_reference, tanggal)
          WITH holding AS (
             SELECT 
-                h.id_trans, h.id_trans_sales_order, d.produk_id, h.company_id, h.cabang_id, d.qty, d.harga_satuan,
+                h.id_trans, h.id_trans_sales_order, d.produk_id, h.company_id, h.cabang_id, d.qty, ROUND(d.grand_total / d.qty, 2) as harga_satuan,
                 d.grand_total as harga_total
             FROM trans_inventory_holding_delivery_preparation_header h
             LEFT JOIN trans_inventory_holding_delivery_preparation d ON h.id_trans = d.id_trans
@@ -74,7 +74,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         (
             SELECT 
                 h.id_trans AS id_references, h.produk_id, h.company_id, h.cabang_id, h.qty, h.harga_satuan, 
-                h.harga_total, 'OUT' AS in_out, 'DS' AS mutasi_type, '{updateindb}'::TIMESTAMP as updateindb, '{userupdate}' as userupdate, '{table_reference}' as tabel_reference, '{tanggal}'::DATE as tanggal
+                h.harga_total, 'OUT' AS in_out, 'SO' AS mutasi_type, '{updateindb}'::TIMESTAMP as updateindb, '{userupdate}' as userupdate, '{table_reference}' as tabel_reference, '{tanggal}'::DATE as tanggal
             FROM holding h
             LEFT JOIN subsidiary s
                 ON h.produk_id = s.produk_id

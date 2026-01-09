@@ -984,7 +984,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             is_range_where = " AND tanggal >= '" + tanggal_awal + "'"
 
         where = (
-            "order_type= 'dropship' and status_release = true and company_id = "
+            "order_type= 'dropship' and status_release = true and approval_status = 3 and company_id = "
             + company_id
             + " AND cabang_id = "
             + cabang_id
@@ -996,7 +996,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         if int(company_id) == 1 and int(cabang_id) == 1:
             where = (
-                "order_type= 'dropship' and status_release = true and tanggal <= '"
+                "order_type= 'dropship' and status_release = true and approval_status = 3  and tanggal <= '"
                 + tanggal_akhir
                 + "'"
                 + is_range_where
@@ -1004,7 +1004,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         elif int(company_id) == 2 and int(cabang_id) == 11:
             where = (
-                "order_type= 'dropship' and status_release = true and company_id = "
+                "order_type= 'dropship' and status_release = true and approval_status = 3 and company_id = "
                 + company_id
                 + "AND tanggal <= '"
                 + tanggal_akhir
@@ -1013,43 +1013,44 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             )
 
         sql = f"""SELECT * FROM (
-                     SELECT 
+                     SELECT
                         aa.id_trans as id_so,
                         hh.id_trans as id_invoice,
                         gg.account_va,
-						gg.nama_customer,
+                                                gg.nama_customer,
                         gg.npwp,
                         bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
-                        aa.tanggal,
+                        kk.tanggal,
                         ee.company_name,
                         ff.cabang_name,
                         aa.qty,
                         aa.harga_satuan,
                         aa.harga_total,
-						aa.ppn_percent,
-						aa.ppn_value,
-						aa.pph_22_percent,
-						aa.pph_22_value,
+                                                aa.ppn_percent,
+                                                aa.ppn_value,
+                                                aa.pph_22_percent,
+                                                aa.pph_22_value,
                         aa.biaya_admin,
-						aa.harga_total_ppn_pph,
-                        ii.pembayaran,                       
+                                                aa.harga_total_ppn_pph,
+                        ii.pembayaran,
                         jj.name as nama_sales,
                         aa.updateindb,
                         aa.company_id,
                         aa.cabang_id,
-                        aa.status_release,
-                        kk.order_type
+                        kk.status_release,
+                        kk.order_type,
+                        kk.approval_status
                     FROM trans_inventory_subsidiary_sales_order aa
                     LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
-                    LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
-                    LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
+                    LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori      
+                    LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan       
                     LEFT JOIN master_company ee ON aa.company_id = ee.id_company
-                    LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company
-					LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
-                    LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
-                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
-                    LEFT JOIN (select * from master_user where is_salesman = 't') jj ON aa.salesman = jj.id_user,
+                    LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company 
                     LEFT JOIN trans_inventory_subsidiary_sales_order_header kk ON aa.id_trans = kk.id_trans
+                    LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
+                    LEFT JOIN master_jenis_pembayaran ii ON kk.id_pembayaran = ii.id_pembayaran     
+                    LEFT JOIN (select * from master_user where is_salesman = 't') jj ON kk.salesman = jj.id_user
+                    LEFT JOIN master_customer gg ON kk.customer_id = gg.id_customer
                     )zz 
                     WHERE {where}
                     ORDER BY updateindb DESC

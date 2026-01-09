@@ -195,55 +195,6 @@ class c_sales_order_recap(object):
                                SELECT '{data_where['id']}',id_trans FROM trans_inventory_subsidiary_invoice
                                where id_sales_report = '{data_where['number_report']}'"""
 
-        sql_insert_sales_recap_inventory = f"""INSERT INTO trans_sales_recap_inventory_detail (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,id_sales_report) 
-                        SELECT
-                            a.produk_id,
-                            a.company_id,
-                            a.cabang_id,
-                            qty + CASE WHEN qty_ is null then 0 ELSE qty_ END as qty,
-                            ROUND((  CASE WHEN amount is null then 0 ELSE amount END + harga_total ) / (qty + CASE WHEN qty_ is null then 0 ELSE qty_ END) ,2)::FLOAT as harga_satuan,
-                            harga_total + CASE WHEN amount is null then 0 ELSE amount END as harga_total,
-                            '{data_where['number_report']}'
-                            FROM
-                            trans_inventory_detail A
-                            LEFT JOIN (
-                            SELECT  company_id, cabang_id, sum(a.qty) qty_, sum(amount) as amount from trans_inventory_subsidiary_invoice A
-                            LEFT JOIN trans_inventory_subsidiary_sales_order B on A.id_trans_sales_order = B.id_trans
-                            WHERE to_char(tanggal_invoice,'yyyy-MM') > '{data_where['tahun']}-{data_where['bulan']}' 
-                             and a.produk_id = {data_where['produk_id']} and b.status_release = true
-                            GROUP BY company_id, cabang_id 
-                            ) B on A.company_id = B.company_id and A.cabang_id = B.cabang_id
-                            WHERE
-                            harga_total <> 0 
-                            AND produk_id = {data_where['produk_id']};"""
-
-        sql_insert_sales_recap_inventory = f"""INSERT INTO trans_sales_recap_inventory_detail (produk_id,company_id,cabang_id,qty,harga_total, harga_satuan,id_sales_report) 
-        SELECT *, 
-            CASE WHEN qty = 0 or harga_total = 0 THEN 0
-            ELSE ROUND(harga_total/qty,2) END as harga_satuan,  '{data_where['number_report']}' as id_sales_report
-        FROM (
-        SELECT
-            a.produk_id,
-            a.company_id,
-            a.cabang_id,
-            qty + CASE WHEN qty_ is null then 0 ELSE qty_ END as qty,
-            harga_total + CASE WHEN amount is null then 0 ELSE amount END as harga_total
-            FROM
-            trans_inventory_detail A
-            LEFT JOIN (
-            SELECT  produk_id, company_id, cabang_id, sum(b.qty) qty_, sum(amount) as amount from trans_inventory_subsidiary_invoice A
-            LEFT JOIN trans_inventory_subsidiary_sales_order B on A.id_trans_sales_order = B.id_trans
-           WHERE date_part('month', tanggal_invoice) = {data_where['bulan']} and date_part('year', tanggal_invoice) = {data_where['tahun']}
-                and b.status_release = true
-            GROUP BY company_id, cabang_id , produk_id
-            ) B on A.company_id = B.company_id and A.cabang_id = B.cabang_id AND A.produk_id = B.produk_id
-            WHERE
-            harga_total <> 0 
-            
-            ) X
-                            """
-        print(sql_insert_sales_recap_inventory)
-
         # sql_insert_sales_recap_inventory = f"""INSERT INTO trans_sales_recap_inventory_detail (produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,id_sales_report)
         #                 SELECT produk_id,company_id,cabang_id,qty,harga_satuan,harga_total,'{data_where['number_report']}'
         #                 FROM trans_inventory_detail WHERE  harga_total <> 0 and produk_id = {data_where['produk_id']}"""
@@ -253,7 +204,6 @@ class c_sales_order_recap(object):
                 sql_update_st_release_recap_header,
                 sql_update_invoice,
                 sql_insert_recap_detail,
-                sql_insert_sales_recap_inventory,
             ]
         )
 
@@ -303,21 +253,34 @@ class c_sales_order_recap(object):
             LEFT JOIN master_produk_uom_satuan BB on AA.uom_satuan = BB.id_uom_satuan
             """
 
-        sql_resume_inventory = f"""SELECT aa.*,
-                        bb.uom_satuan,
-                        bb.nama_produk,
-                            round(total_hpp/inv_qty,2)::FLOAT as harga_satuan FROM
-                            (
+        sql_resume_inventory = f"""SELECT
+                            t.produk_id,
+                            SUM(t.qty_in - t.qty_out) AS inv_qty,
+                            SUM(t.ht_in - t.ht_out) AS total_hpp,
+                            p.uom_satuan,
+                            p.nama_produk,
+                            ROUND(
+                                SUM(t.ht_in - t.ht_out)
+                                / NULLIF(SUM(t.qty_in - t.qty_out), 0),
+                                2
+                            ) AS harga_satuan
+                        FROM (
                             SELECT
-                            produk_id,
-                            sum(qty) as inv_qty,
-                            sum(harga_total) as total_hpp
-                            FROM trans_sales_recap_inventory_detail
-                            WHERE id_sales_report='{data_where['number_report']}'
+                                produk_id,
+                                SUM(qty) FILTER (WHERE in_out = 'IN')  AS qty_in,
+                                SUM(qty) FILTER (WHERE in_out = 'OUT') AS qty_out,
+                                SUM(harga_total) FILTER (WHERE in_out = 'IN')  AS ht_in,
+                                SUM(harga_total) FILTER (WHERE in_out = 'OUT') AS ht_out
+                            FROM trans_inventory_detail_mutasi
+                            WHERE date_part('month', tanggal) <= {data_where['bulan']} and date_part('year', tanggal) <= {data_where['tahun']}
                             GROUP BY produk_id
-                            ) aa
-                            LEFT JOIN master_produk bb on aa.produk_id = bb.id_produk
-                            LEFT JOIN master_produk_uom_satuan cc on bb.uom_satuan = cc.id_uom_satuan
+                        ) t
+                        LEFT JOIN master_produk p
+                            ON p.id_produk = t.produk_id
+                        GROUP BY
+                            t.produk_id,
+                            p.nama_produk,
+                            p.uom_satuan;
                             """
 
         sql_detail_sales = f"""	SELECT aa.invoice_number,
@@ -343,16 +306,37 @@ class c_sales_order_recap(object):
                                     LEFT JOIN master_produk_uom_satuan hh on gg.uom_satuan=hh.id_uom_satuan
                                     WHERE id_header={data_where['id']}"""
 
-        sql_detail_inventory = f"""SELECT 
-                                        bb.company_name,
-                                        cc.cabang_name,
-                                        aa.qty,
-                                        aa.harga_satuan,
-                                        aa.harga_total
-                                    FROM trans_sales_recap_inventory_detail aa
-                                    LEFT JOIN master_company bb on aa.company_id=bb.id_company
-                                    LEFT JOIN master_company_cabang cc on aa.cabang_id=cc.id_cabang
-                                    WHERE id_sales_report='{data_where['number_report']}'"""
+        sql_detail_inventory = f"""SELECT
+            C.company_name,
+            D.cabang_name,
+            A.qty_in - qty_out AS qty,
+            CASE
+                WHEN ( qty_in - qty_out ) = 0 THEN
+                0 ELSE ROUND( ( ht_in - ht_out ) / ( qty_in - qty_out ), 2 ) 
+            END AS harga_satuan,
+            ht_in - ht_out AS harga_total
+            FROM
+            (
+                SELECT
+                produk_id,
+                company_id,
+                cabang_id,
+            SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END ) qty_in,
+            SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END ) qty_out,
+            SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END ) ht_in,
+            SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END ) ht_out 
+            FROM
+            trans_inventory_detail_mutasi 
+            WHERE date_part('month', tanggal) <= {data_where['bulan']} and date_part('year', tanggal) <= {data_where['tahun']}
+            GROUP BY
+            produk_id,
+            company_id,
+            cabang_id 
+            ) A
+            LEFT JOIN master_company C ON A.company_id = C.id_company
+            LEFT JOIN master_company_cabang D on A.company_id = D.id_company AND D.id_cabang = A.cabang_id
+            WHERE qty_in - qty_out != 0
+            ORDER BY A.cabang_id, A.produk_id"""
 
         # sales_recap_report_detail = await self.db.executeToDict(
         #     sql_sales_recap_report_detail
