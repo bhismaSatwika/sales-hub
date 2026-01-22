@@ -25,6 +25,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         await self.get_pre_payment_data(data["id_trans"])
         sql_insert_do = await self.insert_delivery_order(data)
         sql_insert_invoice = await self.insert_invoice_order()
+        sql_update_hpp_so = self.update_hpp(data["id_trans"])
         # print(sql_insert_invoice)
 
         try:
@@ -32,6 +33,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
                 [
                     sql_insert_mutasi,
                     sql_update_delivery,
+                    sql_update_hpp_so,
                     sql_insert_do,
                     sql_insert_invoice,
                 ]
@@ -73,7 +75,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         )
         (
             SELECT 
-                h.id_trans AS id_references, h.produk_id, h.company_id, h.cabang_id, h.qty, h.harga_satuan, 
+                h.id_trans_sales_order AS id_references, h.produk_id, h.company_id, h.cabang_id, h.qty, h.harga_satuan, 
                 h.harga_total, 'OUT' AS in_out, 'SO' AS mutasi_type, '{updateindb}'::TIMESTAMP as updateindb, '{userupdate}' as userupdate, '{table_reference}' as tabel_reference, '{tanggal}'::DATE as tanggal
             FROM holding h
             LEFT JOIN subsidiary s
@@ -83,7 +85,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
                 AND h.cabang_id = s.cabang_id
             UNION ALL
             SELECT
-                h.id_trans AS id_references, h.produk_id, h.company_id, h.cabang_id, h.qty, h.harga_satuan, h.harga_total,
+                h.id_trans_sales_order AS id_references, h.produk_id, h.company_id, h.cabang_id, h.qty, h.harga_satuan, h.harga_total,
                 'IN' AS in_out, 'DS' AS mutasi_type, '{updateindb}'::TIMESTAMP as updateindb, '{userupdate}' as userupdate, '{table_reference}' as tabel_reference, '{tanggal}'::DATE as tanggal
             FROM holding h
         )
@@ -91,7 +93,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         UNION ALL
         (
             SELECT 
-                h.id_trans AS id_references, h.produk_id, 1 AS company_id, 1 AS cabang_id, h.qty,
+                h.id_trans_sales_order AS id_references, h.produk_id, 1 AS company_id, 1 AS cabang_id, h.qty,
                 h.harga_satuan, h.harga_total, 'OUT' AS in_out, 'DS' AS mutasi_type, '{updateindb}'::TIMESTAMP as updateindb, '{userupdate}' as userupdate, '{table_reference}' as tabel_reference, '{tanggal}'::DATE as tanggal
             FROM holding h
             LEFT JOIN subsidiary s
@@ -101,7 +103,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
                 AND h.cabang_id = s.cabang_id
             UNION ALL
             SELECT
-                h.id_trans AS id_references, h.produk_id, 1 AS company_id, 1 AS cabang_id,
+                h.id_trans_sales_order AS id_references, h.produk_id, 1 AS company_id, 1 AS cabang_id,
                 h.qty, h.harga_satuan, h.harga_total, 'IN' AS in_out, 'DS' AS mutasi_type, '{updateindb}'::TIMESTAMP as updateindb, '{userupdate}' as userupdate, '{table_reference}' as tabel_reference, '{tanggal}'::DATE as tanggal
             FROM holding h
         )
@@ -118,6 +120,19 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         )
 
         return update_delivery
+
+    def update_hpp(self, id_trans):
+        sql_update_hpp = f"""
+           UPDATE trans_inventory_subsidiary_sales_order A
+            SET harga_satuan_hpp = ROUND(grand_total / qty, 2), harga_total_hpp = B.grand_total
+            FROM (
+            SELECT A.id_trans_sales_order, B.produk_id, b.grand_total FROM trans_inventory_holding_delivery_preparation_header A
+            LEFT JOIN trans_inventory_holding_delivery_preparation B ON A.id_trans = B.id_trans
+            WHERE id_trans_sales_order = '{id_trans}'
+            ) B
+            WHERE A.id_trans = B.id_trans_sales_order AND a.produk_id = B.produk_id;
+        """
+        return sql_update_hpp
 
     async def get_id_trans_kode_do(
         self, company_id, cabang_id, kode_trans, tahun, bulan

@@ -4,6 +4,8 @@ __all__ = [
     "c_stock_report",
 "c_paid_sales_report",
             "c_salesman_report",
+            "c_margin_report",
             ]
+            
             
             

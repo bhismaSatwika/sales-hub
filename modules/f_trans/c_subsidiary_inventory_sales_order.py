@@ -1577,6 +1577,8 @@ class c_subsidiary_inventory_sales_order(object):
                         CASE WHEN hh.complete_payment = true THEN 'Lunas'
                         ELSE 'Belum Lunas' END as payment,
                         amount_total_outstanding,
+                        aa.harga_satuan_hpp,
+                        aa.harga_total_hpp,
                         xx.updateindb,
                         xx.company_id,
                         xx.cabang_id,
@@ -1640,6 +1642,8 @@ class c_subsidiary_inventory_sales_order(object):
         ws["T1"].value = "SalesMan"
         ws["U1"].value = "Status Pembayaran"
         ws["V1"].value = "Sisa Pembayaran"
+        ws["W1"].value = "Harga Satuan HPP"
+        ws["X1"].value = "Harga Total HPP"
 
         if len(result_data) > 0:
             data_key = []

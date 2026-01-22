@@ -1034,6 +1034,8 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                                                 aa.harga_total_ppn_pph,
                         ii.pembayaran,
                         jj.name as nama_sales,
+                        aa.harga_satuan_hpp,
+                        aa.harga_total_hpp,
                         aa.updateindb,
                         aa.company_id,
                         aa.cabang_id,
@@ -1095,6 +1097,8 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         ws["R1"].value = "Grand Total"
         ws["S1"].value = "Pembayaran"
         ws["T1"].value = "SalesMan"
+        ws["U1"].value = "Harga Satuan HPP"
+        ws["V1"].value = "Harga Total HPP"
 
         if len(result_data) > 0:
             data_key = []
@@ -1112,7 +1116,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         for data in result_data:
             data_export = []
-            for key in data_key[:-4]:
+            for key in data_key[:-5]:
                 data_export.append(data[key])
             ws.append(data_export)
             i = i + 1

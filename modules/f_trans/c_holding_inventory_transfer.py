@@ -453,7 +453,7 @@ class c_holding_inventory_transfer(object):
                 data_kode = await self.get_id_trans_kode_release(
                     result_inv_transfer["inv_transfer"][0]["to_company_id"],
                     result_inv_transfer["inv_transfer"][0]["to_cabang_id"],
-                    "TR",
+                    "RC",
                     tahun,
                     bulan,
                 )

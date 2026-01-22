@@ -165,15 +165,15 @@ class c_master_sales_price(object):
                     ELSE bb.price
                     END) as price
                 FROM
-                    trans_inventory_detail aa 
-                    LEFT JOIN master_sales_price bb
+                    master_sales_price bb 
+                    LEFT JOIN trans_inventory_detail aa
                     ON aa.company_id = bb.id_company
                     AND aa.cabang_id = bb.id_cabang
                     AND aa.produk_id = bb.id_produk 
                 WHERE
-                    aa.company_id = {id_company}
-                    AND aa.cabang_id = {id_cabang} 
-                    AND aa.produk_id = {id_produk} 
+                    bb.id_company = {id_company}
+                    AND bb.id_cabang = {id_cabang}
+                    AND bb.id_produk = {id_produk}
                     AND bb.order_type = '{oder_type}'
                     AND bb.status_release = 't' 
                     AND bb.status_aktif = 't'"""
