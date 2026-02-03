@@ -25,10 +25,21 @@ class c_master_customer(object):
         )
 
         sql = (
-            "SELECT *,ROW_NUMBER() OVER (ORDER BY id_customer DESC) AS nomor_urut from master_customer"
+            """
+    SELECT A.*, b.company_name, C.cabang_name from master_customer A
+LEFT JOIN master_company B on A.company_id = B.id_company
+LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id = C.id_cabang
+"""
             + str_clause
         )
-        sql_count = "SELECT count(*) as count FROM master_customer" + str_clause_count
+        sql_count = (
+            """
+    SELECT COUNT(*) from master_customer A
+LEFT JOIN master_company B on A.company_id = B.id_company
+LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id = C.id_cabang
+"""
+            + str_clause_count
+        )
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)

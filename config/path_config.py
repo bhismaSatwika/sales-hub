@@ -7,4 +7,7 @@ path_routes_not_auth = [
     "/favicon.ico",
     "api/f_trans/c_subsidiary_inventory_sales_order/create_pdf_so",
     "api/f_trans/c_subsidiary_inventory_sales_order_dropship/create_pdf_so_pre_payment",
+    "docs",
+    "openapi",
+    "generete_do_fix",
 ]

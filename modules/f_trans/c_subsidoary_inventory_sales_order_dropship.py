@@ -1146,7 +1146,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         approval_trans = "DROPSHP.APPR." + str(id)
 
         # insert ke tabel detail_approval
-        sql_detail_approval = f"""INSERT INTO trans_approval_detail (header_id,master_approval_id,order_approve,approval_status,approval_type,approval_trans, company_id, cabang_id, issued_by) 
+        sql_detail_approval = f"""INSERT INTO trans_approval_detail (header_id,master_approval_id,order_approve,approval_status,approval_trans, company_id, cabang_id, issued_by) 
         SELECT 
             '{data["id_trans"]}' AS header_id,
             id AS master_approval_id,
@@ -1156,7 +1156,6 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                     THEN 1
                 ELSE 2
             END) AS approval_status,
-            approval_type AS approval_type,
             '{approval_trans}' as approval_trans,
             '{data["company_id"]}' as company_id,
             '{data["cabang_id"]}' as cabang_id,

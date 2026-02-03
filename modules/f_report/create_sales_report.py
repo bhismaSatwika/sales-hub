@@ -15,20 +15,25 @@ class PDF(FPDF):
     def __init__(
         self,
         number_report,
-        resume_sale_data,
+        resume_sale_data_direct,
         resume_inventory_data,
-        detail_sales_data,
+        detail_sales_data_direct,
         detail_inventory_data,
+        resume_sale_data_dropship,
+        detail_sales_data_dropship,
         orientation="L",
         unit="mm",
         format="A4",
     ):
         super().__init__(orientation, unit, format)
         self.number_report = number_report
-        self.resume_sale_data = resume_sale_data
+        self.resume_sale_data = resume_sale_data_direct
         self.resume_inventory_data = resume_inventory_data
-        self.detail_sales_data = detail_sales_data
+        self.detail_sales_data = detail_sales_data_direct
         self.detail_inventory_data = detail_inventory_data
+        self.resume_sale_data_dropship = resume_sale_data_dropship
+        self.detail_sales_data_dropship = detail_sales_data_dropship
+        self.is_direct = True
 
     def header(self):
         y = self.get_y()
@@ -37,12 +42,33 @@ class PDF(FPDF):
         self.add_font("Poppins", "B", "files/font/Poppins/Poppins-Bold.ttf")
         self.add_font("Poppins", "I", "files/font/Poppins/Poppins-Italic.ttf")
         self.add_font("Poppins", "BI", "files/font/Poppins/Poppins-BlackItalic.ttf")
+        y = self.get_y()
+        self.set_font("Poppins", "B", 14)
+
+        if self.is_direct:
+            self.set_x(self.l_margin)
+            self.set_y(y - 7)
+            self.cell(0, 5, "DIRECT", align="R", new_x="LMARGIN", new_y="NEXT")
+        else:
+            self.set_x(self.l_margin)
+            self.set_y(y - 7)
+            self.cell(0, 5, "DROPSHIP", align="R", new_x="LMARGIN", new_y="NEXT")
+
+        if self.page_no() != 1:
+            y = y + 5
+
+        self.set_y(y)
 
     def generate_report(self):
         self.add_page()
         self.top_data()
         self.sales_data(self.detail_sales_data)
         self.inventory_data()
+
+        self.is_direct = False
+        self.add_page()
+        self.dropship_data()
+        self.sales_data(self.detail_sales_data_dropship)
 
         filename = f"files/sales_order_report/{self.number_report}.pdf"
         self.output(filename)
@@ -52,7 +78,9 @@ class PDF(FPDF):
         self.add_font("Poppins", "", "files/font/Poppins/Poppins-Regular.ttf")
         self.add_font("Poppins", "B", "files/font/Poppins/Poppins-Bold.ttf")
         self.set_font("Poppins", "B", 14)
+        self.set_text_color(0, 84, 171)
         self.cell(0, 10, "SALES RECAP REPORT", align="C", new_x="LMARGIN", new_y="NEXT")
+        self.set_text_color(0, 0, 0)
 
         self.set_font("Poppins", "", 12)
 
@@ -63,6 +91,10 @@ class PDF(FPDF):
         for index, value in enumerate(self.resume_sale_data):
             self.sales_resume(value)
             self.inventory_data_resume(self.resume_inventory_data[index])
+
+    def dropship_data(self):
+        for index, value in enumerate(self.resume_sale_data_dropship):
+            self.sales_resume(value)
 
     def sales_resume(self, data):
         full_width = self.w - self.l_margin - self.r_margin
@@ -76,6 +108,7 @@ class PDF(FPDF):
 
         self.ln(3)
         self.set_font("Poppins", "B", 12)
+        self.set_text_color(0, 84, 171)
         self.cell(
             0,
             10,
@@ -84,7 +117,8 @@ class PDF(FPDF):
             new_x="LMARGIN",
             new_y="TOP",
         )
-        self.set_font("Poppins", "IB", 12)
+        self.set_text_color(76, 145, 0)
+        self.set_font("Poppins", "I", 12)
         self.set_x(full_width - full_width / 6)
         self.cell(
             0,
@@ -95,6 +129,7 @@ class PDF(FPDF):
             new_y="NEXT",
         )
         self.set_font("Poppins", "I", 12)
+        self.set_text_color(0, 0, 0)
 
         self.cell(0, 5, "Total Sales", align="L", new_x="LMARGIN", new_y="TOP")
         self.set_x(full_width - full_width / 1.5)
@@ -194,6 +229,7 @@ class PDF(FPDF):
 
         self.ln(3)
         self.set_font("Poppins", "B", 12)
+        self.set_text_color(0, 84, 171)
         self.cell(
             0,
             10,
@@ -202,6 +238,8 @@ class PDF(FPDF):
             new_x="LMARGIN",
             new_y="NEXT",
         )
+        self.set_text_color(0, 0, 0)
+
         self.set_font("Poppins", "I", 12)
 
         self.cell(0, 5, "Total HPP", align="L", new_x="LMARGIN", new_y="TOP")

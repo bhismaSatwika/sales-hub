@@ -322,6 +322,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
             "biaya_admin": self.invoice_pre_payment["biaya_admin"],
             "complete_payment": self.invoice_pre_payment["complete_payment"],
             "reference_pre_payment": self.invoice_pre_payment["id_trans"],
+            "payment_last_updated": tanggal,
         }
 
         sql_insert_invoice = self.db.genStrInsertSingleObject(

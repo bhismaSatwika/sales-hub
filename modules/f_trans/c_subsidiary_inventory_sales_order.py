@@ -1293,7 +1293,7 @@ class c_subsidiary_inventory_sales_order(object):
                             CASE WHEN ff.complete_payment = TRUE THEN 'Lunas' ELSE 'Belum Lunas' END as complete_payment
                         FROM trans_inventory_subsidiary_sales_order_header aa
                         LEFT JOIN master_company bb ON aa.company_id = bb.id_company
-                        LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
+                        LEFT JOIN master_company_cabang cc ON aa.company_id = cc.id_company AND aa.cabang_id = cc.id_cabang
                         LEFT JOIN master_user dd ON aa.salesman = dd.id_user
                         LEFT JOIN master_jenis_pembayaran ee ON aa.id_pembayaran = ee.id_pembayaran
                         LEFT JOIN trans_inventory_subsidiary_invoice ff ON aa.id_trans = ff.id_trans_sales_order
@@ -1313,7 +1313,7 @@ class c_subsidiary_inventory_sales_order(object):
                             aa.harga_total_ppn_pph
                     FROM trans_inventory_subsidiary_sales_order aa
                     LEFT JOIN master_company bb ON aa.company_id = bb.id_company
-                    LEFT JOIN master_company_cabang cc ON aa.company_id = bb.id_company AND aa.cabang_id = cc.id_cabang
+                    LEFT JOIN master_company_cabang cc ON aa.company_id = cc.id_company AND aa.cabang_id = cc.id_cabang
                     LEFT JOIN master_produk dd ON aa.produk_id = dd.id_produk
                     LEFT JOIN master_produk_uom_satuan ee ON dd.uom_satuan = ee.id_uom_satuan
                     LEFT JOIN trans_inventory_subsidiary_invoice ff ON aa.id_trans = ff.id_trans_sales_order

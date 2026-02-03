@@ -4,3 +4,4 @@ from modules.f_trans import *
 from modules.apps import *
 from modules.f_dashboard import *
 from modules.f_report import *
+from modules.function import *

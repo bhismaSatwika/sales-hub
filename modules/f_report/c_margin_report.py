@@ -25,7 +25,7 @@ class c_margin_report(object):
         month = datetime.strptime(tanggal_akhir, "%Y-%m-%d").month
         year = datetime.strptime(tanggal_akhir, "%Y-%m-%d").year
 
-        where = f"Where b.company_id = {company_id} AND "
+        where = f"Where complete_payment = true AND b.company_id = {company_id} AND "
 
         is_range_where = f"date_part('month', payment_last_updated) = {month} and date_part('year', payment_last_updated) = {year}"
 
@@ -90,6 +90,7 @@ class c_margin_report(object):
         header2 = [
             "Nama Company",
             "Nama Produk",
+            "Qty",
             "Order type",
             "Sales",
             "HPP",
@@ -137,10 +138,14 @@ class c_margin_report(object):
             "Nama Company",
             "Nama Cabang",
             "Order Type",
-            "Sales",
+            "Nama Produk",
+            "Qty",
+            "Qty in Kg",
             "HPP",
+            "Sales",
             "Margin",
             "Margin Percent",
+            "Tanggal Pelunasan",
         ]
 
         sheets["BY INVOICE"] = {
@@ -188,17 +193,17 @@ class c_margin_report(object):
     def margin_by_order_type(self, where):
         sql = f"""
             SELECT  C.company_name, A.order_type, A.sales, A.hpp, A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent FROM (
-        SELECT SUM(B.harga_total) as sales, SUM(c.hpp) as hpp, b.company_id, b.order_type FROM trans_inventory_subsidiary_invoice A
-        LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
-        LEFT JOIN (
-            SELECT id_trans, SUM (harga_total) sales, SUM(harga_total_hpp) as hpp FROM trans_inventory_subsidiary_sales_order A
-            GROUP BY id_trans 
-        ) C ON B.id_trans = C.id_trans
-        {where}
-        GROUP BY B.company_id, B.order_type
-        ) A
-        LEFT JOIN master_company C on A.company_id = C.id_company
-        ORDER BY company_id;
+  SELECT  SUM(B.harga_total) as sales, SUM(c.hpp) as hpp, b.company_id, b.order_type FROM trans_inventory_subsidiary_invoice A
+  LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
+  LEFT JOIN (
+    SELECT id_trans, SUM (harga_total) sales, SUM(harga_total_hpp) as hpp FROM trans_inventory_subsidiary_sales_order A
+    GROUP BY id_trans 
+  ) C ON B.id_trans = C.id_trans
+  {where}
+  GROUP BY B.company_id, B.order_type
+) A
+LEFT JOIN master_company C on A.company_id = C.id_company
+ORDER BY company_id;
                 """
 
         return sql
@@ -206,33 +211,33 @@ class c_margin_report(object):
     def margin_by_order_type_per_month(self, where):
         sql = f"""
         SELECT  C.company_name, A.order_type, A.month, A.year, A.sales, A.hpp, A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent FROM (
-        SELECT  SUM(B.harga_total) as sales, SUM(c.hpp) as hpp, b.company_id, b.order_type, date_part('year', payment_last_updated) as year, date_part('month', payment_last_updated) as month FROM trans_inventory_subsidiary_invoice A
-        LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
-        LEFT JOIN (
-            SELECT id_trans, SUM (harga_total) sales, SUM(harga_total_hpp) as hpp FROM trans_inventory_subsidiary_sales_order A
-            GROUP BY id_trans 
-        ) C ON B.id_trans = C.id_trans
-        {where}
-        GROUP BY date_part('year', payment_last_updated), date_part('month', payment_last_updated), B.company_id, B.order_type
-        ) A
-        LEFT JOIN master_company C on A.company_id = C.id_company
-        ORDER BY company_id, year, month, order_type;
+  SELECT  SUM(B.harga_total) as sales, SUM(c.hpp) as hpp, b.company_id, b.order_type, date_part('year', payment_last_updated) as year, date_part('month', payment_last_updated) as month FROM trans_inventory_subsidiary_invoice A
+  LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
+  LEFT JOIN (
+    SELECT id_trans, SUM (harga_total) sales, SUM(harga_total_hpp) as hpp FROM trans_inventory_subsidiary_sales_order A
+    GROUP BY id_trans 
+  ) C ON B.id_trans = C.id_trans
+  {where}
+  GROUP BY date_part('year', payment_last_updated), date_part('month', payment_last_updated), B.company_id, B.order_type
+) A
+LEFT JOIN master_company C on A.company_id = C.id_company
+ORDER BY company_id, month, year, order_type;
         """
 
         return sql
 
     def margin_by_produk(self, where):
         sql = f"""
-            SELECT  C.company_name, B.nama_produk, A.order_type, A.sales, A.hpp, A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent FROM (
-        SELECT SUM(c.harga_total) as sales, SUM(c.harga_total_hpp) as hpp, b.company_id, c.produk_id, b.order_type FROM trans_inventory_subsidiary_invoice A
-        LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
-        LEFT JOIN trans_inventory_subsidiary_sales_order C ON B.id_trans = C.id_trans
-        {where}
-        GROUP BY B.company_id, B.order_type, C.produk_id
-        ) A
-        LEFT JOIN master_produk B on A.produk_id = B.id_produk
-        LEFT JOIN master_company C on A.company_id = C.id_company
-        ORDER BY company_id;
+            SELECT  C.company_name, B.nama_produk, A.qty, A.order_type, A.sales, A.hpp, A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent FROM (
+  SELECT SUM(c.qty) as qty, SUM(c.harga_total) as sales, SUM(c.harga_total_hpp) as hpp, b.company_id, c.produk_id, b.order_type FROM trans_inventory_subsidiary_invoice A
+  LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
+  LEFT JOIN trans_inventory_subsidiary_sales_order C ON B.id_trans = C.id_trans
+  {where}
+  GROUP BY B.company_id, B.order_type, C.produk_id
+) A
+LEFT JOIN master_produk B on A.produk_id = B.id_produk
+LEFT JOIN master_company C on A.company_id = C.id_company
+ORDER BY company_id;
         """
 
         return sql
@@ -240,15 +245,15 @@ class c_margin_report(object):
     def margin_by_cabang(self, where):
         sql = f"""
                 SELECT C.company_name, D.cabang_name, A.order_type, A.sales, A.hpp, A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent FROM (
-  SELECT  b.order_type, SUM(C.harga_total) as sales, SUM(C.harga_total_hpp) as hpp, b.cabang_id, b.company_id FROM trans_inventory_subsidiary_invoice A
-  LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
-  LEFT JOIN trans_inventory_subsidiary_sales_order C ON B.id_trans = C.id_trans
-  {where}
-  GROUP BY b.company_id, b.cabang_id, b.order_type
-) A
-LEFT JOIN master_company C on A.company_id = C.id_company
-LEFT JOIN master_company_cabang D on A.company_id = D.id_company and A.cabang_id = D.id_cabang
-ORDER BY company_id, cabang_id;
+        SELECT  b.order_type, SUM(C.harga_total) as sales, SUM(C.harga_total_hpp) as hpp, b.cabang_id, b.company_id FROM trans_inventory_subsidiary_invoice A
+        LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
+        LEFT JOIN trans_inventory_subsidiary_sales_order C ON B.id_trans = C.id_trans
+        {where}
+        GROUP BY b.company_id, b.cabang_id, b.order_type
+        ) A
+        LEFT JOIN master_company C on A.company_id = C.id_company
+        LEFT JOIN master_company_cabang D on A.company_id = D.id_company and A.cabang_id = D.id_cabang
+        ORDER BY company_id, cabang_id;
         """
 
         return sql
@@ -256,31 +261,49 @@ ORDER BY company_id, cabang_id;
     def margin_by_cabang_month(self, where):
         sql = f"""
                         SELECT C.company_name, D.cabang_name, A.year, A.month, A.order_type, A.sales, A.hpp, A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent FROM (
-  SELECT b.order_type, SUM(C.harga_total) as sales, SUM(C.harga_total_hpp) as hpp, b.cabang_id, b.company_id, date_part('month', payment_last_updated) as month, date_part('year', payment_last_updated) as year
-  FROM trans_inventory_subsidiary_invoice A
-  LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
-  LEFT JOIN trans_inventory_subsidiary_sales_order C ON B.id_trans = C.id_trans
-  {where}
-  GROUP BY b.company_id, b.cabang_id, date_part('year', payment_last_updated), date_part('month', payment_last_updated), b.order_type
-) A
-LEFT JOIN master_company C on A.company_id = C.id_company
-LEFT JOIN master_company_cabang D on A.company_id = D.id_company and A.cabang_id = D.id_cabang
-ORDER BY company_id, cabang_id, a.year, a.month;
+            SELECT b.order_type, SUM(C.harga_total) as sales, SUM(C.harga_total_hpp) as hpp, b.cabang_id, b.company_id, date_part('month', payment_last_updated) as month, date_part('year', payment_last_updated) as year
+            FROM trans_inventory_subsidiary_invoice A
+            LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
+            LEFT JOIN trans_inventory_subsidiary_sales_order C ON B.id_trans = C.id_trans
+            {where}
+            GROUP BY b.company_id, b.cabang_id, date_part('year', payment_last_updated), date_part('month', payment_last_updated), b.order_type 
+            ) A
+            LEFT JOIN master_company C on A.company_id = C.id_company
+            LEFT JOIN master_company_cabang D on A.company_id = D.id_company and A.cabang_id = D.id_cabang
+            ORDER BY company_id, cabang_id, a.year, a.month;
                 """
 
         return sql
 
     def margin_by_invoice(self, where):
         sql = f"""
-                                            SELECT A.id_trans, C.company_name, D.cabang_name, A.order_type, A.sales, A.hpp, A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent FROM (
-  SELECT A.id_trans, B.order_type, B.harga_total as sales, c.harga_total_hpp as hpp, b.cabang_id, b.company_id FROM trans_inventory_subsidiary_invoice A
-  LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
-  LEFT JOIN ( SELECT id_trans, SUM ( harga_total_hpp ) AS harga_total_hpp FROM trans_inventory_subsidiary_sales_order GROUP BY id_trans ) C ON B.id_trans = C.id_trans
-  {where}
-) A
-LEFT JOIN master_company C on A.company_id = C.id_company
-LEFT JOIN master_company_cabang D on A.company_id = D.id_company and A.cabang_id = D.id_cabang
-ORDER BY company_id, cabang_id;
+                                                        SELECT A
+            .id_trans,
+            C.company_name,
+            A.order_type,
+            D.cabang_name,
+            B.nama_produk,
+            A.qty,
+            CASE
+                WHEN A.produk_id = 4 THEN
+                qty * 50 ELSE qty 
+            END AS qty_in_kg, A.hpp,
+            A.sales,
+            A.sales - A.hpp as margin, ROUND((A.sales - A.hpp) / A.sales *100,2)  as margin_percent,
+            A.payment_last_updated as tanggal_pelunasan
+            FROM
+            (
+            SELECT A.id_trans, B.order_type, B.company_id, B.cabang_id, C.produk_id, A.payment_last_updated, SUM(c.qty) as qty, SUM(c.harga_total_hpp) AS hpp,  SUM(c.harga_total) as sales 
+            FROM trans_inventory_subsidiary_invoice A
+            LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans
+            LEFT JOIN trans_inventory_subsidiary_sales_order C on B.id_trans = C.id_trans
+            {where}
+            GROUP BY A.id_trans, B.company_id, B.cabang_id, produk_id, A.payment_last_updated, B.order_type
+            ) A
+            LEFT JOIN master_produk B on A.produk_id = B.id_produk
+            LEFT JOIN master_company C on A.company_id = C.id_company
+            LEFT JOIN master_company_cabang D on A.company_id = D.id_company and A.cabang_id = D.id_cabang
+            ORDER BY payment_last_updated, company_id, cabang_id;
         """
 
         return sql
