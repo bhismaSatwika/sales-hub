@@ -51,7 +51,7 @@ class c_master_sales_price(object):
                 FROM master_sales_price aa
                 LEFT JOIN master_produk bb ON aa.id_produk = bb.id_produk
                 LEFT JOIN master_company cc ON aa.id_company = cc.id_company
-                LEFT JOIN master_company_cabang dd ON aa.id_cabang = dd.id_cabang"""
+                LEFT JOIN master_company_cabang dd ON aa.id_cabang = dd.id_cabang and aa.id_company = dd.id_company"""
             + str_clause
         )
 
@@ -60,7 +60,7 @@ class c_master_sales_price(object):
                 FROM master_sales_price aa
                 LEFT JOIN master_produk bb ON aa.id_produk = bb.id_produk
                 LEFT JOIN master_company cc ON aa.id_company = cc.id_company
-                LEFT JOIN master_company_cabang dd ON aa.id_cabang = dd.id_cabang"""
+                LEFT JOIN master_company_cabang dd ON aa.id_cabang = dd.id_cabang and aa.id_company = dd.id_company"""
             + str_clause_count
         )
 
