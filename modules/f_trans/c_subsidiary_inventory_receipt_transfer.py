@@ -417,7 +417,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                 "mutasi_type": "TP",
                 "id_references": result_inv_receipt["inv_receipt_out"][0]["id_trans"],
                 "tabel_reference": "trans_inventory_subsidiary_receipt_transfer",
-                "tanggal": result_inv_receipt["inv_receipt_out"][0]["tanggal"],
+                "tanggal": datetime.now().date(),
             }
 
             # --------------------------- insert ke mutasi --------------------------------------------------

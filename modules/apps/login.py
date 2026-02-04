@@ -42,11 +42,12 @@ class login(object):
                          cc.company_name,
                          dd.id_cabang as cabang_id,
                          dd.cabang_name,
-                         aa.is_view_only
+                         aa.is_view_only,
+                         aa.uuid
                 FROM master_user aa
                 LEFT JOIN master_user_role bb ON aa.user_role = bb.id_role
                 LEFT JOIN master_company cc ON aa.company_id = cc.id_company
-                LEFT JOIN master_company_cabang dd ON aa.cabang_id = dd.id_cabang
+                LEFT JOIN master_company_cabang dd ON aa.cabang_id = dd.id_cabang and aa.company_id = dd.id_company
                 WHERE aa.username='{username}'"""
 
         # print(sql)

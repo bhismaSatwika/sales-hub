@@ -35,6 +35,7 @@ class __Auth:
         # print(self.algoritma)
 
         payload = {
+            "uuid": payload_data["uuid"],
             "username": payload_data["username"],
         }
         # print(payload_data["nik"])
@@ -43,6 +44,19 @@ class __Auth:
             "token": token,
             "user_data": {
                 "id_user": payload_data["id_user"],
+                "uuid": payload_data["uuid"],
+                # "username": payload_data["username"],
+                # "company_id": payload_data["company_id"],
+                # "company_name": payload_data["company_name"],
+                # "cabang_id": payload_data["cabang_id"],
+                # "cabang_name": payload_data["cabang_name"],
+                # "id_role": payload_data["id_role"],
+                # "role_data": payload_data["role_data"],
+                # "is_view_only": payload_data["is_view_only"],
+            },
+            "user_data_local": {
+                "id_user": payload_data["id_user"],
+                "uuid": payload_data["uuid"],
                 "username": payload_data["username"],
                 "company_id": payload_data["company_id"],
                 "company_name": payload_data["company_name"],
