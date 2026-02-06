@@ -344,12 +344,12 @@ class PDF(FPDF):
 
         header = [
             "Nama Produk",
-            "Quantity",
+            "Qty",
             "Satuan",
             "Harga Satuan",
             "Harga Total",
-            "PPN",
             "PPH",
+            "PPN",
             "Total",
         ]
 
@@ -365,13 +365,13 @@ class PDF(FPDF):
 
         with self.table(
             col_widths=(
+                40,
+                20,
+                20,
                 30,
                 30,
-                17,
-                30,
-                30,
-                30,
-                30,
+                20,
+                20,
                 30,
             ),
             borders_layout="HORIZONTAL_LINES",
@@ -407,13 +407,13 @@ class PDF(FPDF):
 
         with self.table(
             col_widths=(
+                40,
+                20,
+                20,
                 30,
                 30,
-                17,
-                30,
-                30,
-                30,
-                30,
+                20,
+                20,
                 30,
             ),
             borders_layout="HORIZONTAL_LINES",

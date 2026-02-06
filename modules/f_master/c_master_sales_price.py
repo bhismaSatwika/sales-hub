@@ -163,7 +163,9 @@ class c_master_sales_price(object):
                     WHEN bb.price IS NULL
                     THEN 0
                     ELSE bb.price
-                    END) as price
+                    END) as price,
+                    include_ppn
+
                 FROM
                     master_sales_price bb 
                     LEFT JOIN trans_inventory_detail aa
@@ -182,7 +184,7 @@ class c_master_sales_price(object):
             result = await self.db.executeToDict(sql)
             # print(result)
             if len(result) == 0:
-                return {"price": 0, "harga_satuan_hpp": 0}
+                return {"price": 0, "harga_satuan_hpp": 0, "include_ppn": False}
             message = {"status": "success"}
         except Exception as e:
             message = {"status": "error"}

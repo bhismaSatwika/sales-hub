@@ -486,7 +486,7 @@ class c_subsidiary_inventory_sales_order(object):
             trans = await self.db.executeTrans([sqlHeader, sqlDetail])
 
             if trans["status"] == False:
-                raise HTTPException(400, ("The error is: ", str(e)))
+                raise HTTPException(400, ("The error is: ", str(trans["detail"])))
 
             if len(files) > 0:
                 try:

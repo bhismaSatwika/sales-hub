@@ -341,9 +341,7 @@ class c_subsidiary_inventory_sales_order_release(object):
             }
 
         ## validasi stok inventory dan jumlah quantity yang akan dirilis
-        await self.validasi_quantity(
-            data["company_id"], data["cabang_id"], data["id_trans"]
-        )
+        await self.validasi_quantity(data["id_trans"])
 
         ## validasi payment
         await self.paid_payment.validasi_paid_payment(data)
@@ -406,24 +404,31 @@ class c_subsidiary_inventory_sales_order_release(object):
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
 
-    async def validasi_quantity(self, company_id, cabang_id, id_trans):
-        sql_validate = f"""SELECT aa.company_id,aa.cabang_id,aa.produk_id,bb.nama_produk,SUM(aa.qty) as qty_inventory,SUM(cc.qty) as qty_sales
-                                        FROM trans_inventory_detail aa
-                                        LEFT JOIN master_produk bb
-                                        ON aa.produk_id = bb.id_produk
-                                        LEFT JOIN (
-                                        SELECT company_id,produk_id,cabang_id,qty
-                                                FROM trans_inventory_subsidiary_sales_order 
-                                                WHERE id_trans = '{id_trans}'
-                                        ) cc ON aa.produk_id = cc.produk_id AND aa.company_id = cc.company_id AND aa.cabang_id = cc.cabang_id
-                                        WHERE aa.company_id = {company_id} AND aa.cabang_id = {cabang_id} 
-                                        AND aa.produk_id IN(
-                                                SELECT produk_id
-                                                FROM trans_inventory_subsidiary_sales_order 
-                                                WHERE id_trans = '{id_trans}'
-                                        )
-                                        GROUP BY aa.company_id,aa.cabang_id,aa.produk_id,bb.nama_produk
-                                        HAVING SUM(cc.qty) > SUM(aa.qty)"""
+    async def validasi_quantity(self, id_trans):
+        sql_validate = f"""
+                SELECT
+                aa.company_id,
+                aa.produk_id,
+                aa.cabang_id,
+                bb.nama_produk,
+                SUM(aa.qty) as qty_sales,
+                SUM(COALESCE(cc.qty,0)) as qty_inventory
+                FROM
+                ( 
+                    SELECT company_id, produk_id, cabang_id, qty 
+                    FROM trans_inventory_subsidiary_sales_order 
+                    WHERE id_trans = '{id_trans}' 
+                ) aa
+                LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
+                LEFT JOIN trans_inventory_detail as cc ON cc.produk_id = aa.produk_id  AND cc.company_id = aa.company_id  AND cc.cabang_id = aa.cabang_id
+                GROUP BY 
+                aa.company_id,
+                aa.produk_id,
+                aa.cabang_id,
+                bb.nama_produk
+                HAVING SUM(aa.qty) > SUM(COALESCE(cc.qty,0))
+
+            """
 
         # print("\n\n\n")
         # print(sql_validate)
@@ -438,7 +443,7 @@ class c_subsidiary_inventory_sales_order_release(object):
             if len(result) > 0:
                 string = ""
                 for res in result:
-                    string = f"""Produk {res['nama_produk']} memiliki sisa stok :{res['qty_inventory']}, """
+                    string = f"""Produk {res['nama_produk']} memiliki sisa stok {res['qty_inventory']}, """
                     message = message + string
                 print(string)
                 raise HTTPException(

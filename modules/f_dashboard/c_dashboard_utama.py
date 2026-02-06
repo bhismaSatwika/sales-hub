@@ -684,6 +684,9 @@ class c_dashboard_utama(object):
         B.nama_produk,
         A.total_qty,
         A.total_sales,
+        A.total_hpp,
+        A.total_sales - A.total_hpp as margin,
+        ROUND((A.total_sales - A.total_hpp) / A.total_sales * 100, 2) as margin_percent,
         A.order_type
         FROM
         (
@@ -693,6 +696,7 @@ class c_dashboard_utama(object):
             C.produk_id,
             SUM ( C.qty ) AS total_qty,
             SUM ( C.harga_total ) AS total_sales,
+            SUM(c.harga_total_hpp) as total_hpp,
             B.order_type
             FROM
             trans_inventory_subsidiary_invoice A
@@ -709,7 +713,6 @@ class c_dashboard_utama(object):
         LEFT JOIN master_company C ON A.company_id = C.id_company
         LEFT JOIN master_company_cabang D ON A.company_id = D.id_company
         AND A.cabang_id = D.id_cabang
-            
         """
         sql = query + str_clause
         print(sql)
@@ -748,9 +751,12 @@ class c_dashboard_utama(object):
                 SELECT C.company_name,
         D.cabang_name,
         B.nama_produk,
+        A.order_type,
         A.total_qty,
         A.total_sales,
-        A.order_type
+        A.total_hpp,
+        A.total_sales - A.total_hpp as margin,
+        ROUND((A.total_sales - A.total_hpp) / A.total_sales * 100, 2) as margin_percent
         FROM
         (
             SELECT
@@ -759,7 +765,7 @@ class c_dashboard_utama(object):
             C.produk_id,
             SUM ( C.qty ) AS total_qty,
             SUM ( C.harga_total ) AS total_sales,
-            B.order_type
+            SUM(c.harga_total_hpp) as total_hpp,
             FROM
             trans_inventory_subsidiary_invoice A
             LEFT JOIN trans_inventory_subsidiary_sales_order_header B on A.id_trans_sales_order = B.id_trans     
@@ -775,8 +781,6 @@ class c_dashboard_utama(object):
         LEFT JOIN master_company C ON A.company_id = C.id_company
         LEFT JOIN master_company_cabang D ON A.company_id = D.id_company
         AND A.cabang_id = D.id_cabang
-        ORDER BY {orderby}
-            
         """
 
         print(sql)
@@ -807,9 +811,12 @@ class c_dashboard_utama(object):
         ws["A1"].value = "Company Name"
         ws["B1"].value = "Cabang Name"
         ws["C1"].value = "Nama Produk"
-        ws["D1"].value = "Total Qty"
-        ws["E1"].value = "Totsal Sales"
-        ws["F1"].value = "Order Type"
+        ws["D1"].value = "Order Type"
+        ws["E1"].value = "Total Qty"
+        ws["F1"].value = "Total Sales"
+        ws["G1"].value = "HPP"
+        ws["H1"].value = "Margin"
+        ws["I1"].value = "Margin Percent"
 
         if len(result_data) > 0:
             data_key = []
@@ -860,8 +867,14 @@ class c_dashboard_utama(object):
         )
 
         query = f"""
-                        SELECT B.nama_produk, A.* FROM (
-                    SELECT A.produk_id, SUM(A.qty) total_qty,SUM(A.harga_total) as amount_total, d.order_type
+            SELECT B.nama_produk, A.*, ROUND(A.margin / A.amount_total * 100,2) as margin_percent FROM (
+                SELECT 
+                        A.produk_id,
+                        d.order_type,
+                        SUM ( A.qty ) total_qty,
+                        SUM ( A.harga_total ) AS amount_total,
+                        SUM ( A.harga_total_hpp ) AS hpp,
+                        SUM ( A.harga_total ) - SUM ( A.harga_total_hpp ) AS margin
                     FROM trans_inventory_subsidiary_invoice Z
                     LEFT JOIN trans_inventory_subsidiary_sales_order_header D on Z.id_trans_sales_order = D.id_trans
                     LEFT JOIN trans_inventory_subsidiary_sales_order A on D.id_trans = A.id_trans
@@ -869,8 +882,8 @@ class c_dashboard_utama(object):
                     LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id = C.id_company
                     {where}
                     GROUP BY D.order_type, A.produk_id
-            ) A
-            LEFT JOIN master_produk B on A.produk_id = B.id_produk
+                ) A
+                LEFT JOIN master_produk B on A.produk_id = B.id_produk
         """
 
         sql = query + str_clause
@@ -907,15 +920,21 @@ class c_dashboard_utama(object):
             where = f"""WHERE d.company_id = {company_id} and tanggal_invoice between '{tanggal_start}' and '{tanggal}'  and d.status_release = true AND (approval_status !=4 or approval_status is null)"""
 
         sql = f"""
-                        SELECT B.nama_produk, A.* FROM (
-                    SELECT A.produk_id, SUM(A.qty) total_qty,SUM(A.harga_total) as amount_total, d.order_type
-                    FROM trans_inventory_subsidiary_invoice Z
-                    LEFT JOIN trans_inventory_subsidiary_sales_order_header D on Z.id_trans_sales_order = D.id_trans
-                    LEFT JOIN trans_inventory_subsidiary_sales_order A on D.id_trans = A.id_trans
-                    LEFT JOIN master_company B on A.company_id = B.id_company
-                    LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id = C.id_company
-                    {where}
-                    GROUP BY D.order_type, A.produk_id
+            SELECT B.nama_produk, A.*, ROUND(A.margin / A.amount_total * 100,2) as margin_percent FROM (
+                SELECT 
+                    A.produk_id,
+                    d.order_type,
+                    SUM ( A.qty ) total_qty,
+                    SUM ( A.harga_total ) AS amount_total,
+                    SUM ( A.harga_total_hpp ) AS hpp,
+                    SUM ( A.harga_total ) - SUM ( A.harga_total_hpp ) AS margin
+                FROM trans_inventory_subsidiary_invoice Z
+                LEFT JOIN trans_inventory_subsidiary_sales_order_header D on Z.id_trans_sales_order = D.id_trans
+                LEFT JOIN trans_inventory_subsidiary_sales_order A on D.id_trans = A.id_trans
+                LEFT JOIN master_company B on A.company_id = B.id_company
+                LEFT JOIN master_company_cabang C on A.cabang_id = C.id_cabang and A.company_id = C.id_company
+                {where}
+                GROUP BY D.order_type, A.produk_id
             ) A
             LEFT JOIN master_produk B on A.produk_id = B.id_produk
         """
@@ -945,9 +964,12 @@ class c_dashboard_utama(object):
 
         ws["A1"].value = "Nama Produk"
         ws["B1"].value = "Produk Id"
-        ws["C1"].value = "Total Qty"
-        ws["D1"].value = "Amount Total"
-        ws["E1"].value = "Order Type"
+        ws["C1"].value = "Order Type"
+        ws["D1"].value = "Total Qty"
+        ws["E1"].value = "Amount Total"
+        ws["F1"].value = "HPP"
+        ws["G1"].value = "Margin"
+        ws["H1"].value = "Margin Percent"
 
         if len(result_data) > 0:
             data_key = []

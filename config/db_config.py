@@ -1,7 +1,7 @@
 # db_config = {
 #     "host": "170.1.20.21",
 #     "port": "5432",
-#     "db": "distributionship_prod_v2_dev",
+#     "db": "distributionship_prod_v2_copy",
 #     "username": "rni",
 #     "password": "rni@4dm1n",
 #     "dbType": "postgres",
