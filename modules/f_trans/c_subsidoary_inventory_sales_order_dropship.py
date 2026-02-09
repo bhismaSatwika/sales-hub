@@ -1002,7 +1002,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                 + is_range_where
             )
 
-        elif int(company_id) == 2 and int(cabang_id) == 11:
+        elif int(company_id) != 1 and is_pusat == True:
             where = (
                 "order_type= 'dropship' and status_release = true and approval_status = 3 and company_id = "
                 + company_id

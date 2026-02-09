@@ -28,6 +28,7 @@ class c_subsidiary_inventory_delivery_order(object):
         order_type,
         company_id=None,
         cabang_id=None,
+        is_pusat=False,
         filter_other="",
         filter_other_conj="",
     ):
@@ -41,7 +42,7 @@ class c_subsidiary_inventory_delivery_order(object):
             if company_id == 1:
                 filter_other = f""
 
-            if company_id == 2 and cabang_id == 11:
+            if company_id == 1 and is_pusat == True:
                 filter_other = f" zz.company_id = '{company_id}'"
         else:
             filter_other = f""
@@ -362,10 +363,11 @@ async def read_history(
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
     order_type: Optional[str] = Query("direct", alias="order_type"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_subsidiary_inventory_delivery_order()
     return await ob_data.read_history(
-        orderby, limit, offset, filter, order_type, company_id, cabang_id
+        orderby, limit, offset, filter, order_type, company_id, cabang_id, is_pusat
     )
 
 

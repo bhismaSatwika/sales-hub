@@ -193,17 +193,17 @@ class c_sales_order_recap(object):
                                SELECT '{data_where['id']}',id_trans FROM trans_inventory_subsidiary_invoice
                                where id_sales_report = '{data_where['number_report']}'"""
 
-        # trans = await self.db.executeTrans(
-        #     [
-        #         sql_update_st_release_recap_header,
-        #         sql_update_invoice,
-        #         sql_insert_recap_detail,
-        #     ]
-        # )
+        trans = await self.db.executeTrans(
+            [
+                sql_update_st_release_recap_header,
+                sql_update_invoice,
+                sql_insert_recap_detail,
+            ]
+        )
 
-        # if trans["status"] == False:
-        #     print(str(trans["detail"]))
-        #     raise HTTPException(400, str(trans["detail"]))
+        if trans["status"] == False:
+            print(str(trans["detail"]))
+            raise HTTPException(400, str(trans["detail"]))
 
         sql_resume_sale_direct = f"""
         SELECT

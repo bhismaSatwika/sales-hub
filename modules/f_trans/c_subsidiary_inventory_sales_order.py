@@ -33,6 +33,7 @@ class c_subsidiary_inventory_sales_order(object):
         filter,
         company_id=None,
         cabang_id=None,
+        is_pusat=False,
         filter_other="",
         filter_other_conj="",
     ):
@@ -45,7 +46,7 @@ class c_subsidiary_inventory_sales_order(object):
                 filter_other = f"order_type ='direct'"
                 filter_other_conj = f"AND"
 
-            if company_id == 2 and cabang_id == 11:
+            if company_id != 1 and is_pusat == True:
                 filter_other = (
                     f" zz.company_id = '{company_id}' AND order_type ='direct'"
                 )
@@ -1515,7 +1516,7 @@ class c_subsidiary_inventory_sales_order(object):
         return result
 
     async def export_sales_order(
-        self, tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
+        self, tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range, is_pusat
     ):
         company_id = str(company_id)
         cabang_id = str(cabang_id)
@@ -1542,7 +1543,7 @@ class c_subsidiary_inventory_sales_order(object):
                 + is_range_where
             )
 
-        elif int(company_id) == 2 and int(cabang_id) == 11:
+        elif int(company_id) != 1 and is_pusat == True:
             where = (
                 " order_type = 'direct' and status_release = true and company_id = "
                 + company_id
@@ -1687,9 +1688,12 @@ async def read(
     filter: str = Query(None, alias="$filter"),
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_subsidiary_inventory_sales_order()
-    return await ob_data.read(orderby, limit, offset, filter, company_id, cabang_id)
+    return await ob_data.read(
+        orderby, limit, offset, filter, company_id, cabang_id, is_pusat
+    )
 
 
 @app.get("/api/f_trans/c_subsidiary_inventory_sales_order/read_produk")
@@ -1960,8 +1964,9 @@ async def get_invoice_so(
     company_id: int = Query(None, alias="company_id"),
     cabang_id: int = Query(None, alias="cabang_id"),
     is_range: bool = Query(None, alias="is_range"),
+    is_pusat: bool = Query(None, alias="is_pusat"),
 ):
     ob_data = c_subsidiary_inventory_sales_order()
     return await ob_data.export_sales_order(
-        tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
+        tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range, is_pusat
     )
