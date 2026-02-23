@@ -28,15 +28,15 @@ class paid_payment(object):
             master_customer B
             LEFT JOIN (
             SELECT customer_id, sum(amount_total_outstanding) as amount_total_outstanding from trans_inventory_subsidiary_invoice
-            WHERE customer_id = {data['customer_id']}
+            WHERE customer_id = '{data['customer_id']}'
             GROUP BY customer_id 
             ) A on A.customer_id = B.id_customer
             LEFT JOIN (
             SELECT sum(A.amount_total_outstanding) as amount_total_outstanding, A.customer_id FROM trans_inventory_subsidiary_invoice_pre_payment A
-            WHERE A.customer_id = {data['customer_id']}
+            WHERE A.customer_id = '{data['customer_id']}'
             GROUP BY A.customer_id
             ) C on C.customer_id = B.id_customer
-            WHERE b.id_customer = {data['customer_id']}
+            WHERE b.id_customer = '{data['customer_id']}'
         ) X
         """
         print("query payment", sql)

@@ -13,10 +13,29 @@ class c_master_customer(object):
         self.kendoParse = kendo_parse.KendoParse
 
     async def read(
-        self, orderby, limit, offset, filter, filter_other="", filter_other_conj=""
+        self,
+        orderby,
+        limit,
+        offset,
+        filter,
+        company_id,
+        cabang_id,
+        is_pusat,
+        filter_other="",
+        filter_other_conj="",
     ):
         if orderby == None or orderby == "":
             orderby = "id_customer ASC"
+
+        filter_other = f"A.company_id = '{company_id}' AND A.cabang_id = '{cabang_id}'"
+        filter_other_conj = "and"
+        if company_id == 1 and cabang_id == 1:
+            filter_other = f""
+            filter_other_conj = f""
+        elif company_id != 1 and is_pusat == True:
+            filter_other = f"A.company_id = '{company_id}'"
+            filter_other_conj = "and"
+
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
         )
@@ -40,6 +59,7 @@ LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id
 """
             + str_clause_count
         )
+        print(sql)
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
@@ -130,7 +150,7 @@ LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id
 
     async def get_atribut_customer(self, id_customer):
         sql = f"""SELECT id_customer as value,nama_customer as text,* FROM master_customer 
-                  WHERE id_customer = {id_customer} AND status_release = 't' AND status_aktif = 't'
+                  WHERE id_customer = '{id_customer}' AND status_release = 't' AND status_aktif = 't'
                   LIMIT 1"""
         result = await self.db.executeToDict(sql)
         data = {"data": result}
@@ -155,10 +175,15 @@ async def read_data(
     orderby: str = Query(None, alias="$orderby"),
     offset: int = Query(None, alias="$skip"),
     filter: str = Query(None, alias="$filter"),
+    company_id: int = Query(None, alias="company_id"),
+    cabang_id: int = Query(None, alias="cabang_id"),
+    is_pusat: bool = Query(None, alias="is_pusat"),
 ):
     # print("the data:", nik, limit, orderby, offset, filter)
     ob_data = c_master_customer()
-    return await ob_data.read(orderby, limit, offset, filter)
+    return await ob_data.read(
+        orderby, limit, offset, filter, company_id, cabang_id, is_pusat
+    )
 
 
 @app.post("/api/f_master/c_master_customer/create")

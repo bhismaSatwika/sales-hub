@@ -368,7 +368,7 @@ class c_holding_inventory_submit(object):
             # await self.db.executeQuery(sql_update_status_release_inv_submit)
 
             sql_delete_inv_detail = f"""DELETE FROM trans_inventory_detail 
-                                    WHERE company_id = {data_where_delete['company_id']} AND cabang_id = {data_where_delete['cabang_id']} AND produk_id = {data_where_delete['produk_id']}"""
+                                    WHERE company_id = {data_where_delete['company_id']} AND cabang_id = {data_where_delete['cabang_id']} AND produk_id = {data_where_delete['produk_id']} and stock_condition = 'good'"""
             # await self.db.executeQuery(sql_delete_inv_detail)
 
             sql_detail_mutasi = f"""SELECT produk_id,
@@ -387,6 +387,7 @@ class c_holding_inventory_submit(object):
                                     FROM
                                         trans_inventory_detail_mutasi 
                                     WHERE company_id = {data_where_delete['company_id']} and cabang_id = {data_where_delete['cabang_id']} and produk_id = {data_where_delete['produk_id']} 
+                                     and stock_condition = 'good'
                                         GROUP BY
                                         produk_id,
                                         company_id,

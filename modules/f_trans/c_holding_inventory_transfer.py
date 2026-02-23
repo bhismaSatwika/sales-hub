@@ -623,7 +623,7 @@ async def get_td_files(id_trans: str = Query(None, alias="id_trans")):
 @app.get("/api/f_trans/c_holding_inventory_transfer/stream_file")
 async def stream_file(filename: str = Query(None, alias="filename")):
     ob_data = c_holding_inventory_transfer()
-    path_parent = params.loc["file_inventory_submit"]
+    path_parent = params.loc["file_inventory_transfer"]
     path = path_parent + "/" + filename
     return await ob_data.stream_file(path, filename)
 

@@ -496,7 +496,7 @@ async def update(
     cabang_id: int = Form(...),
     salesman: int = Form(...),
     tanggal: str = Form(...),
-    customer_id: int = Form(...),
+    customer_id: str = Form(...),
     id_pembayaran: int = Form(...),
     harga_total: float = Form(...),
     files: Optional[List[UploadFile]] = File([]),

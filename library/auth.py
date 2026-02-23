@@ -65,6 +65,7 @@ class __Auth:
                 "id_role": payload_data["id_role"],
                 "role_data": payload_data["role_data"],
                 "is_view_only": payload_data["is_view_only"],
+                "is_pusat": payload_data["is_pusat"],
             },
         }
 

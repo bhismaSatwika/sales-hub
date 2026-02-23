@@ -284,7 +284,7 @@ class c_sales_order_recap(object):
                                 SUM(harga_total) FILTER (WHERE in_out = 'IN')  AS ht_in,
                                 SUM(harga_total) FILTER (WHERE in_out = 'OUT') AS ht_out
                             FROM trans_inventory_detail_mutasi WHERE
-                            tanggal <= '{tanggal_end}'
+                            tanggal <= '{tanggal_end}'  and stock_condition = 'good'
                             GROUP BY produk_id
                         ) t
                         LEFT JOIN master_produk p
@@ -485,7 +485,7 @@ class c_sales_order_recap(object):
                                 SUM(harga_total) FILTER (WHERE in_out = 'IN')  AS ht_in,
                                 SUM(harga_total) FILTER (WHERE in_out = 'OUT') AS ht_out
                             FROM trans_inventory_detail_mutasi WHERE
-                            tanggal <= '{tanggal_end}'
+                            tanggal <= '{tanggal_end}'  and stock_condition = 'good'
                             GROUP BY produk_id
                         ) t
                         LEFT JOIN master_produk p
@@ -518,7 +518,7 @@ class c_sales_order_recap(object):
                 SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END ) ht_out 
                 FROM
                 trans_inventory_detail_mutasi where
-                tanggal <= '{tanggal_end}'
+                tanggal <= '{tanggal_end}'  and stock_condition = 'good'
                 GROUP BY
                 produk_id,
                 company_id,

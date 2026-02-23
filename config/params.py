@@ -15,6 +15,7 @@ loc = {
     "file_template_download": rootWeb + "/files/template_download/",
     "file_sales_retur": rootWeb + "/files/sales_retur/",
     "file_delivery_preparation": rootWeb + "/files/delivery_preparation/",
+    "file_bad_stock": rootWeb + "/files/bad_stock/",
 }
 
 

@@ -37,7 +37,7 @@ FROM
             SUM( CASE WHEN mutasi_type = 'TP' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_transfered,
             SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_sold,
             SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' AND company_id !=1 AND tabel_reference = 'trans_inventory_holding_delivery_preparation_header' THEN qty ELSE 0 END) qty_dropship
-        FROM trans_inventory_detail_mutasi
+        FROM trans_inventory_detail_mutasi 
 --         WHERE company_id != 1
         GROUP BY company_id, cabang_id, produk_id
         ) A

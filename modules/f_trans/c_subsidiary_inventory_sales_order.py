@@ -1558,9 +1558,11 @@ class c_subsidiary_inventory_sales_order(object):
                         xx.id_trans as id_so,
                         hh.id_trans as id_invoice,
                         gg.account_va,
-						gg.nama_customer,
+                        gg.nama_customer,
+                        gg.alamat,
                         gg.npwp,
-                        bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
+                        gg.no_ktp,
+                        bb.nama_produk||' ('||dd.uom_satuan||')' as nama_produk,
                         xx.tanggal,
                         ee.company_name,
                         ff.cabang_name,
@@ -1625,26 +1627,28 @@ class c_subsidiary_inventory_sales_order(object):
         ws["B1"].value = "ID Invoice"
         ws["C1"].value = "Account VA"
         ws["D1"].value = "Nama Customer"
-        ws["E1"].value = "NPWP"
-        ws["F1"].value = "Nama Produk"
-        ws["G1"].value = "Tanggal"
-        ws["H1"].value = "Nama Company"
-        ws["I1"].value = "Nama Cabang"
-        ws["J1"].value = "Quantity"
-        ws["K1"].value = "Harga Satuan"
-        ws["L1"].value = "Harga Total"
-        ws["M1"].value = "PPN %"
-        ws["N1"].value = "PPN Value"
-        ws["O1"].value = "PPH 22 %"
-        ws["P1"].value = "PPH 22 Value"
-        ws["Q1"].value = "Biaya Admin"
-        ws["R1"].value = "Grand Total"
-        ws["S1"].value = "Pembayaran"
-        ws["T1"].value = "SalesMan"
-        ws["U1"].value = "Status Pembayaran"
-        ws["V1"].value = "Sisa Pembayaran"
-        ws["W1"].value = "Harga Satuan HPP"
-        ws["X1"].value = "Harga Total HPP"
+        ws["E1"].value = "Alamat"
+        ws["F1"].value = "NPWP"
+        ws["G1"].value = "KTP"
+        ws["H1"].value = "Nama Produk"
+        ws["I1"].value = "Tanggal"
+        ws["J1"].value = "Nama Company"
+        ws["K1"].value = "Nama Cabang"
+        ws["L1"].value = "Quantity"
+        ws["M1"].value = "Harga Satuan"
+        ws["N1"].value = "Harga Total"
+        ws["O1"].value = "PPN %"
+        ws["P1"].value = "PPN Value"
+        ws["Q1"].value = "PPH 22 %"
+        ws["R1"].value = "PPH 22 Value"
+        ws["S1"].value = "Biaya Admin"
+        ws["T1"].value = "Grand Total"
+        ws["U1"].value = "Pembayaran"
+        ws["V1"].value = "SalesMan"
+        ws["W1"].value = "Status Pembayaran"
+        ws["X1"].value = "Sisa Pembayaran"
+        ws["Y1"].value = "Harga Satuan HPP"
+        ws["Z1"].value = "Harga Total HPP"
 
         if len(result_data) > 0:
             data_key = []
@@ -1713,7 +1717,7 @@ async def create(
     company_id: int = Form(...),
     cabang_id: int = Form(...),
     tanggal: str = Form(...),
-    customer_id: int = Form(...),
+    customer_id: str = Form(...),
     harga_total_ppn_pph: float = Form(...),
     total_ppn: float = Form(...),
     total_pph: float = Form(...),
@@ -1763,7 +1767,7 @@ async def create(
 #     harga_satuan: float = Form(...),
 #     harga_total: float = Form(...),
 #     tanggal: str = Form(...),
-#     customer_id: int = Form(...),
+#     customer_id: str = Form(...),
 #     ppn_percent: float = Form(...),
 #     ppn_value: float = Form(...),
 #     pph_22_percent: float = Form(...),
@@ -1811,7 +1815,7 @@ async def update(
     cabang_id: int = Form(...),
     salesman: int = Form(...),
     tanggal: str = Form(...),
-    customer_id: int = Form(...),
+    customer_id: str = Form(...),
     id_pembayaran: int = Form(...),
     total_ppn: float = Form(...),
     total_pph: float = Form(...),

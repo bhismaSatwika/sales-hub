@@ -25,33 +25,38 @@ class c_trans_inventory_detail(object):
         company_id=None,
         cabang_id=None,
         is_cabang=False,
+        is_pusat=False,
         filter_other="",
         filter_other_conj="and",
     ):
+        where = "stock_condition = 'good' "
 
         if company_id != 1 and is_cabang == True:
-            filter_other = (
-                f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
+            filter_other = where + (
+                f"AND zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
             )
             filter_other_conj = f" and "
 
         elif company_id == 1 and is_cabang == True:
-            filter_other = f"(1=1)"
+            filter_other = where
             filter_other_conj = f"and"
 
         elif company_id == 1 and is_cabang == False:
-            filter_other = (
-                f" zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
+            filter_other = where + (
+                f"and zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
             )
             filter_other_conj = f" and "
 
-        if company_id == 2 and cabang_id == 11 and is_cabang == True:
-            filter_other = f" zz.company_id = '{company_id}'"
+        if company_id != 1 and is_pusat == True and is_cabang == True:
+            filter_other = where + f" and zz.company_id = '{company_id}'"
             filter_other_conj = f" and "
 
         # print(filter_other)
         if orderby == None or orderby == "":
             orderby = "zz.updateindb DESC"
+        else:
+            orderby = orderby + ", cabang_id asc"
+
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
         )
@@ -61,8 +66,7 @@ class c_trans_inventory_detail(object):
 
         # print(str_clause)
 
-        sql = (
-            f"""SELECT * FROM (
+        query = """SELECT * FROM (
             SELECT 
                 aa.id_trans,
                 bb.id_produk as produk_id,
@@ -80,7 +84,8 @@ class c_trans_inventory_detail(object):
                 aa.harga_total,
                 aa.updateindb,
                 bb.ppn,
-                bb.pph22
+                bb.pph22,
+                aa.stock_condition
             FROM trans_inventory_detail aa
             LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
             LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
@@ -90,42 +95,15 @@ class c_trans_inventory_detail(object):
             LEFT JOIN master_produk_kategori gg ON bb.kategori_produk = gg.id_kategori
             LEFT JOIN master_produk_uom_satuan hh ON bb.uom_satuan = hh.id_uom_satuan
         ) zz """
-            + str_clause
-        )
 
         # print(sql)
 
-        sql_count = (
-            f"""SELECT Count(*) as count FROM (
-            SELECT 
-                aa.id_trans,
-                bb.id_produk as produk_id,
-                bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
-                cc.id_kategori as kategori_id,
-                cc.kategori,
-                dd.id_uom_satuan,
-                dd.uom_satuan,
-                ee.id_company as company_id,
-                ee.company_name,
-                ff.id_cabang as cabang_id,
-                ff.cabang_name,
-                aa.qty,
-                aa.harga_satuan,
-                aa.harga_total,
-                aa.updateindb,
-                bb.ppn,
-                bb.pph22
-            FROM trans_inventory_detail aa
-            LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
-            LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
-            LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
-            LEFT JOIN master_company ee ON aa.company_id = ee.id_company
-            LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company
-            LEFT JOIN master_produk_kategori gg ON bb.kategori_produk = gg.id_kategori
-            LEFT JOIN master_produk_uom_satuan hh ON bb.uom_satuan = hh.id_uom_satuan
-        ) zz """
-            + str_clause_count
-        )
+        sql = query + str_clause
+        sql_2 = query + str_clause_count
+        print(sql)
+
+        sql_count = f"""SELECT COUNT(*) 
+        FROM ({sql_2})  as subquery"""
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
@@ -142,6 +120,7 @@ class c_trans_inventory_detail(object):
         company_id=None,
         cabang_id=None,
         is_cabang=False,
+        is_pusat=False,
         filter_other="",
         filter_other_conj="",
     ):
@@ -159,7 +138,7 @@ class c_trans_inventory_detail(object):
                 f"where zz.company_id = '{company_id}' AND zz.cabang_id = '{cabang_id}'"
             )
 
-        if company_id == 2 and cabang_id == 11 and is_cabang == True:
+        if company_id != 1 and is_pusat == True and is_cabang == True:
             where = f"where zz.company_id = '{company_id}'"
 
         if orderby == None or orderby == "":
@@ -174,12 +153,14 @@ class c_trans_inventory_detail(object):
         sql = (
             f"""
         SELECT A.*,
-        B.nama_produk 
+        B.nama_produk,
+         c.uom_satuan 
         FROM
         ( SELECT SUM ( qty ) qty, SUM ( harga_total ) AS harga_total, produk_id FROM trans_inventory_detail zz
         {where}
         GROUP BY produk_id )
         A LEFT JOIN master_produk B ON A.produk_id = B.id_produk
+        LEFT JOIN master_produk_uom_satuan C ON B.uom_satuan = C.id_uom_satuan
         """
             + str_clause
         )
@@ -202,7 +183,7 @@ class c_trans_inventory_detail(object):
         data = {"data": result, "total": result_count[0]["count"]}
         return data
 
-    async def read_inventory_card(self, company_id, cabang_id, is_cabang):
+    async def read_inventory_card(self, company_id, cabang_id, is_cabang, is_pusat):
 
         where = """
         """
@@ -213,7 +194,7 @@ class c_trans_inventory_detail(object):
         elif company_id == 1 and is_cabang == False:
             where = f"where company_id = '{company_id}' AND cabang_id = '{cabang_id}'"
 
-        if company_id == 2 and cabang_id == 11 and is_cabang == True:
+        if company_id != 1 and is_pusat == True and is_cabang == True:
             where = f"where company_id = '{company_id}'"
 
         sql_total_branch = f"""
@@ -274,10 +255,11 @@ async def read(
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
     is_cabang: bool = Query(None, alias="$is_cabang"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_trans_inventory_detail()
     return await ob_data.read(
-        orderby, limit, offset, filter, company_id, cabang_id, is_cabang
+        orderby, limit, offset, filter, company_id, cabang_id, is_cabang, is_pusat
     )
 
 
@@ -290,10 +272,11 @@ async def read_product(
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
     is_cabang: bool = Query(None, alias="$is_cabang"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_trans_inventory_detail()
     return await ob_data.read_product(
-        orderby, limit, offset, filter, company_id, cabang_id, is_cabang
+        orderby, limit, offset, filter, company_id, cabang_id, is_cabang, is_pusat
     )
 
 
@@ -302,6 +285,7 @@ async def read_inventory_card(
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
     is_cabang: bool = Query(None, alias="$is_cabang"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_trans_inventory_detail()
-    return await ob_data.read_inventory_card(company_id, cabang_id, is_cabang)
+    return await ob_data.read_inventory_card(company_id, cabang_id, is_cabang, is_pusat)

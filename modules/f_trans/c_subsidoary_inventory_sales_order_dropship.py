@@ -975,7 +975,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         return await self.stream_file(path, id_trans_do)
 
     async def export_sales_order(
-        self, tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
+        self, tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range, is_pusat
     ):
         company_id = str(company_id)
         cabang_id = str(cabang_id)
@@ -1016,9 +1016,11 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                      SELECT
                         aa.id_trans as id_so,
                         hh.id_trans as id_invoice,
+                        ll.id_trans as id_inv_pre,
                         gg.account_va,
-                                                gg.nama_customer,
+                        gg.nama_customer,
                         gg.npwp,
+                        gg.no_ktp,
                         bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
                         kk.tanggal,
                         ee.company_name,
@@ -1026,13 +1028,15 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                         aa.qty,
                         aa.harga_satuan,
                         aa.harga_total,
-                                                aa.ppn_percent,
-                                                aa.ppn_value,
-                                                aa.pph_22_percent,
-                                                aa.pph_22_value,
+                        aa.ppn_percent,
+                        aa.ppn_value,
+                        aa.pph_22_percent,
+                        aa.pph_22_value,
                         aa.biaya_admin,
-                                                aa.harga_total_ppn_pph,
+                        aa.harga_total_ppn_pph,
                         ii.pembayaran,
+                        CASE WHEN ll.complete_payment = true THEN 'Lunas'
+                        ELSE 'Belum Lunas' END as payment,
                         jj.name as nama_sales,
                         aa.harga_satuan_hpp,
                         aa.harga_total_hpp,
@@ -1053,6 +1057,8 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                     LEFT JOIN master_jenis_pembayaran ii ON kk.id_pembayaran = ii.id_pembayaran     
                     LEFT JOIN (select * from master_user where is_salesman = 't') jj ON kk.salesman = jj.id_user
                     LEFT JOIN master_customer gg ON kk.customer_id = gg.id_customer
+                                        LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment ll on ll.id_trans_sales_order = aa.id_trans
+
                     )zz 
                     WHERE {where}
                     ORDER BY updateindb DESC
@@ -1060,6 +1066,9 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         result = await self.db.executeToDict(sql)
         print(sql)
+
+        if len(result) == 0:
+            raise HTTPException(400, "Data Not Found")
 
         wb = self.excel_return(result)
         buffer = io.BytesIO()
@@ -1079,26 +1088,29 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         ws = wb.active
         ws["A1"].value = "ID SO"
         ws["B1"].value = "ID Invoice"
-        ws["C1"].value = "Account VA"
-        ws["D1"].value = "Nama Customer"
-        ws["E1"].value = "NPWP"
-        ws["F1"].value = "Nama Produk"
-        ws["G1"].value = "Tanggal"
-        ws["H1"].value = "Nama Company"
-        ws["I1"].value = "Nama Cabang"
-        ws["J1"].value = "Quantity"
-        ws["K1"].value = "Harga Satuan"
-        ws["L1"].value = "Harga Total"
-        ws["M1"].value = "PPN %"
-        ws["N1"].value = "PPN Value"
-        ws["O1"].value = "PPH 22 %"
-        ws["P1"].value = "PPH 22 Value"
-        ws["Q1"].value = "Biaya Admin"
-        ws["R1"].value = "Grand Total"
-        ws["S1"].value = "Pembayaran"
-        ws["T1"].value = "SalesMan"
-        ws["U1"].value = "Harga Satuan HPP"
-        ws["V1"].value = "Harga Total HPP"
+        ws["C1"].value = "PRE Invoice"
+        ws["D1"].value = "Account VA"
+        ws["E1"].value = "Nama Customer"
+        ws["F1"].value = "NPWP"
+        ws["G1"].value = "KTP"
+        ws["H1"].value = "Nama Produk"
+        ws["I1"].value = "Tanggal"
+        ws["J1"].value = "Nama Company"
+        ws["K1"].value = "Nama Cabang"
+        ws["L1"].value = "Quantity"
+        ws["M1"].value = "Harga Satuan"
+        ws["N1"].value = "Harga Total"
+        ws["O1"].value = "PPN %"
+        ws["P1"].value = "PPN Value"
+        ws["Q1"].value = "PPH 22 %"
+        ws["R1"].value = "PPH 22 Value"
+        ws["S1"].value = "Biaya Admin"
+        ws["T1"].value = "Grand Total"
+        ws["U1"].value = "Pembayaran"
+        ws["V1"].value = "Payment Pre INV"
+        ws["W1"].value = "SalesMan"
+        ws["X1"].value = "Harga Satuan HPP"
+        ws["Y1"].value = "Harga Total HPP"
 
         if len(result_data) > 0:
             data_key = []
@@ -1116,7 +1128,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         for data in result_data:
             data_export = []
-            for key in data_key[:-5]:
+            for key in data_key[:-6]:
                 data_export.append(data[key])
             ws.append(data_export)
             i = i + 1
@@ -1267,7 +1279,7 @@ async def create(
     company_id: int = Form(...),
     cabang_id: int = Form(...),
     tanggal: str = Form(...),
-    customer_id: int = Form(...),
+    customer_id: str = Form(...),
     harga_total_ppn_pph: float = Form(...),
     total_ppn: float = Form(...),
     total_pph: float = Form(...),
@@ -1315,7 +1327,7 @@ async def update(
     cabang_id: int = Form(...),
     salesman: int = Form(...),
     tanggal: str = Form(...),
-    customer_id: int = Form(...),
+    customer_id: str = Form(...),
     id_pembayaran: int = Form(...),
     total_ppn: float = Form(...),
     total_pph: float = Form(...),
@@ -1483,10 +1495,11 @@ async def get_invoice_so(
     company_id: int = Query(None, alias="company_id"),
     cabang_id: int = Query(None, alias="cabang_id"),
     is_range: bool = Query(None, alias="is_range"),
+    is_pusat: bool = Query(None, alias="is_pusat"),
 ):
     ob_data = c_subsidiary_inventory_sales_order_dropship()
     return await ob_data.export_sales_order(
-        tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range
+        tanggal_awal, tanggal_akhir, company_id, cabang_id, is_range, is_pusat
     )
 
 

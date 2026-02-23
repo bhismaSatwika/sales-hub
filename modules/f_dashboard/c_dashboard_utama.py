@@ -22,12 +22,12 @@ class c_dashboard_utama(object):
         date = datetime.strptime(tanggal, "%Y-%m-%d")
         tahun = date.year
 
-        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '2025-01-01' AND '{tanggal}'"""
+        where = f"""WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND tanggal BETWEEN '2025-01-01' AND '{tanggal}' and stock_condition = 'good'"""
 
         if int(company_id) == 1:
-            where = f"""WHERE tanggal BETWEEN '2025-01-01' AND '{tanggal}'"""
+            where = f"""WHERE tanggal BETWEEN '2025-01-01' AND '{tanggal}'  and stock_condition = 'good'"""
         elif int(company_id) != 1 and is_pusat == True:
-            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '2025-01-01' AND '{tanggal}'"""
+            where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '2025-01-01' AND '{tanggal}'  and stock_condition = 'good'"""
 
         sql = f"""SELECT sum(ht) as qty
             FROM

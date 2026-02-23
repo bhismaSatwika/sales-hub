@@ -27,25 +27,27 @@ class c_subsidiary_inventory_receipt_transfer(object):
         filter,
         company_id=None,
         cabang_id=None,
+        is_pusat=False,
         filter_other="",
         filter_other_conj="",
     ):
 
-        if company_id != None and cabang_id != None:
-            filter_other = f" zz.to_company_id = '{company_id}' AND zz.to_cabang_id = '{cabang_id}' AND zz.status_release = false"
-            filter_other_conj = f" and "
+        filter_other = f" zz.to_company_id = '{company_id}' AND zz.to_cabang_id = '{cabang_id}' AND zz.status_release = false"
+        filter_other_conj = f" and "
 
-            if company_id == 2 and cabang_id == 11:
-                filter_other = (
-                    f" zz.to_company_id = '{company_id}' AND zz.status_release = false"
-                )
+        print(company_id, cabang_id)
+        if company_id == 1 and cabang_id == 1:
+            filter_other = "zz.status_release = false"
+            filter_other_conj = "and"
 
-        else:
-            filter_other = f""
-            filter_other_conj = f""
+        if company_id != 1 and is_pusat == True:
+            filter_other = (
+                f" zz.to_company_id = '{company_id}' AND zz.status_release = false"
+            )
 
         if orderby == None or orderby == "":
             orderby = "zz.updateindb DESC"
+
         str_clause = self.kendoParse().parse_query(
             orderby, limit, offset, filter, filter_other, filter_other_conj
         )
@@ -53,8 +55,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = (
-            f"""SELECT * FROM (
+        query = """SELECT * FROM (
                     SELECT 
                         aa.id_trans,
                         dd.company_id,
@@ -98,56 +99,15 @@ class c_subsidiary_inventory_receipt_transfer(object):
 					LEFT JOIN master_company hh ON dd.to_company_id = hh.id_company 
 					LEFT JOIN master_company_cabang ii ON dd.to_cabang_id = ii.id_cabang AND dd.to_company_id = ii.id_company
                     ) zz"""
-            + str_clause
-        )
 
+        sql = query + str_clause
+        sql_2 = query + str_clause_count
         sql_count = (
-            f"""SELECT count(*) count FROM (
-                    SELECT 
-                        aa.id_trans,
-                        bb.id_company as company_id,
-                        bb.company_name,
-                        cc.id_cabang as cabang_id,
-                        cc.cabang_name,
-                        (CASE 
-                            WHEN aa.status_release = true
-                            THEN 'Release'
-                        ELSE '-'
-                        END) as ket_status_release,
-                        aa.status_release,
-                        aa.tanggal,
-                        aa.no_urut,
-                        aa.updateindb,
-						ee.id_produk as produk_id,
-					    ee.nama_produk ||' ('||gg.uom_satuan||')' as nama_produk,
-						dd.qty,
-						dd.harga_satuan,
-						dd.harga_total,
-                        dd.transport_cost_total,
-						dd.tanggal as tanggal_transfer,
-						gg.id_uom_satuan,
-						gg.uom_satuan,
-						ff.id_kategori,
-						ff.kategori,
-                        dd.to_company_id,
-						dd.to_cabang_id,
-						hh.company_name as to_company_name,
-						ii.cabang_name as to_cabang_name,
-                        dd.id_trans as id_trans_inventory_transfer,
-                        ee.ppn,
-                        ee.pph22
-                    FROM trans_inventory_subsidiary_receipt_transfer aa
-                    LEFT JOIN master_company bb ON aa.company_id = bb.id_company
-                    LEFT JOIN master_company_cabang cc ON aa.cabang_id = cc.id_cabang AND aa.company_id = cc.id_company
-					LEFT JOIN trans_inventory_holding_transfer dd ON aa.id_trans_holding_transfer = dd.id_trans
-					LEFT JOIN master_produk ee ON dd.produk_id = ee.id_produk
-					LEFT JOIN master_produk_kategori ff ON ee.kategori_produk = ff.id_kategori
-					LEFT JOIN master_produk_uom_satuan gg ON ee.uom_satuan = gg.id_uom_satuan
-					LEFT JOIN master_company hh ON dd.to_company_id = hh.id_company 
-					LEFT JOIN master_company_cabang ii ON dd.to_cabang_id = ii.id_cabang AND dd.to_company_id = ii.id_company
-                ) zz """
-            + str_clause_count
-        )
+            sql_count
+        ) = f"""SELECT COUNT(*) 
+        FROM ({sql_2})  as subquery"""
+
+        print(sql)
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
@@ -163,19 +123,21 @@ class c_subsidiary_inventory_receipt_transfer(object):
         filter,
         company_id=None,
         cabang_id=None,
+        is_pusat=False,
         filter_other="",
         filter_other_conj="",
     ):
+        filter_other = f" zz.to_company_id = '{company_id}' AND zz.to_cabang_id = '{cabang_id}' AND zz.status_release = true"
+        filter_other_conj = f" and "
 
-        if company_id != None and cabang_id != None:
-            filter_other = f" zz.to_company_id = '{company_id}' AND zz.to_cabang_id = '{cabang_id}' AND zz.status_release = true"
-            filter_other_conj = f" and "
+        if company_id == 1 and cabang_id == 1:
+            filter_other = "zz.status_release = true"
+            filter_other_conj = "AND"
 
-            if company_id == 2 and cabang_id == 11:
-                filter_other = f" zz.to_company_id = '{company_id}'"
-        else:
-            filter_other = f""
-            filter_other_conj = f""
+        if company_id != 1 and is_pusat == True:
+            filter_other = (
+                f" zz.to_company_id = '{company_id}' AND zz.status_release = true"
+            )
 
         if orderby == None or orderby == "":
             orderby = "zz.updateindb DESC"
@@ -186,8 +148,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = (
-            f"""SELECT * FROM (
+        query = """SELECT * FROM (
                     SELECT 
                         aa.id_trans,
                         dd.company_id,
@@ -229,56 +190,13 @@ class c_subsidiary_inventory_receipt_transfer(object):
 					LEFT JOIN master_company hh ON dd.to_company_id = hh.id_company 
 					LEFT JOIN master_company_cabang ii ON dd.to_cabang_id = ii.id_cabang AND dd.to_company_id = ii.id_company
                     ) zz"""
-            + str_clause
-        )
 
+        sql = query + str_clause
+        sql_2 = query + str_clause_count
         sql_count = (
-            f"""SELECT count(*) count FROM (
-                    SELECT 
-                        aa.id_trans,
-                        bb.id_company as company_id,
-                        bb.company_name,
-                        cc.id_cabang as cabang_id,
-                        cc.cabang_name,
-                        (CASE 
-                            WHEN aa.status_release = true
-                            THEN 'Release'
-                        ELSE 'Draft'
-                        END) as ket_status_release,
-                        aa.status_release,
-                        aa.tanggal,
-                        aa.no_urut,
-                        aa.updateindb,
-						ee.id_produk as produk_id,
-					    ee.nama_produk ||' ('||gg.uom_satuan||')' as nama_produk,
-						dd.qty,
-						dd.harga_satuan,
-						dd.harga_total,
-                        dd.transport_cost_total,
-						dd.tanggal as tanggal_transfer,
-					    gg.id_uom_satuan,
-						gg.uom_satuan,
-						ff.id_kategori,
-						ff.kategori,
-                        dd.to_company_id,
-						dd.to_cabang_id,
-						hh.company_name as to_company_name,
-						ii.cabang_name as to_cabang_name,
-                        dd.id_trans as id_trans_inventory_transfer,
-                        ee.ppn,
-                        ee.pph22
-                    FROM trans_inventory_subsidiary_receipt_transfer aa
-                    LEFT JOIN master_company bb ON aa.company_id = bb.id_company
-                    LEFT JOIN master_company_cabang cc ON aa.cabang_id = cc.id_cabang AND aa.company_id = cc.id_company
-					LEFT JOIN trans_inventory_holding_transfer dd ON aa.id_trans_holding_transfer = dd.id_trans
-					LEFT JOIN master_produk ee ON dd.produk_id = ee.id_produk
-					LEFT JOIN master_produk_kategori ff ON ee.kategori_produk = ff.id_kategori
-					LEFT JOIN master_produk_uom_satuan gg ON ee.uom_satuan = gg.id_uom_satuan
-					LEFT JOIN master_company hh ON dd.to_company_id = hh.id_company 
-					LEFT JOIN master_company_cabang ii ON dd.to_cabang_id = ii.id_cabang AND dd.to_company_id = ii.id_company
-                ) zz """
-            + str_clause_count
-        )
+            sql_count
+        ) = f"""SELECT COUNT(*) 
+        FROM ({sql_2})  as subquery"""
 
         result = await self.db.executeToDict(sql)
         result_count = await self.db.executeToDict(sql_count)
@@ -461,12 +379,12 @@ class c_subsidiary_inventory_receipt_transfer(object):
                                         SUM(case when in_out ='IN' then harga_total else 0 end)-SUM(case when in_out ='OUT' then harga_total else 0 end) harga_total
                                     FROM
                                         trans_inventory_detail_mutasi
-                                    WHERE company_id = {result_inv_receipt["inv_receipt_in"][0]["company_id"]} and cabang_id = {result_inv_receipt["inv_receipt_in"][0]["cabang_id"]} and produk_id = {result_inv_receipt["inv_receipt_in"][0]["produk_id"]} 
+                                    WHERE company_id = {result_inv_receipt["inv_receipt_in"][0]["company_id"]} and cabang_id = {result_inv_receipt["inv_receipt_in"][0]["cabang_id"]} and produk_id = {result_inv_receipt["inv_receipt_in"][0]["produk_id"]} AND stock_condition = 'good'
                                         GROUP BY
                                         produk_id,
                                         company_id,
                                         cabang_id
-                                        ) aa"""
+                                        ) aa  """
 
             sql_detail_mutasi_out = f"""SELECT produk_id,
                                         company_id,
@@ -487,7 +405,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                                         SUM(case when in_out ='IN' then harga_total else 0 end)-SUM(case when in_out ='OUT' then harga_total else 0 end) harga_total
                                     FROM
                                         trans_inventory_detail_mutasi
-                                    WHERE company_id = {result_inv_receipt["inv_receipt_out"][0]["company_id"]} and cabang_id = {result_inv_receipt["inv_receipt_out"][0]["cabang_id"]} and produk_id = {result_inv_receipt["inv_receipt_out"][0]["produk_id"]} 
+                                    WHERE company_id = {result_inv_receipt["inv_receipt_out"][0]["company_id"]} and cabang_id = {result_inv_receipt["inv_receipt_out"][0]["cabang_id"]} and produk_id = {result_inv_receipt["inv_receipt_out"][0]["produk_id"]}  AND stock_condition = 'good'
                                         GROUP BY
                                         produk_id,
                                         company_id,
@@ -514,11 +432,11 @@ class c_subsidiary_inventory_receipt_transfer(object):
             # await self.db.executeQuery(sql_update_status_release_inv_receipt)
 
             sql_delete_inv_detail_in = f"""DELETE FROM trans_inventory_detail 
-                                    WHERE company_id = {result_inv_receipt["inv_receipt_in"][0]["company_id"]} AND cabang_id = {result_inv_receipt["inv_receipt_in"][0]["cabang_id"]} AND produk_id = {result_inv_receipt["inv_receipt_in"][0]["produk_id"]}"""
+                                    WHERE company_id = {result_inv_receipt["inv_receipt_in"][0]["company_id"]} AND cabang_id = {result_inv_receipt["inv_receipt_in"][0]["cabang_id"]} AND produk_id = {result_inv_receipt["inv_receipt_in"][0]["produk_id"]} AND stock_condition = 'good'"""
             # await self.db.executeQuery(sql_delete_inv_detail_in)
 
             sql_delete_inv_detail_out = f"""DELETE FROM trans_inventory_detail 
-                                    WHERE company_id = {result_inv_receipt["inv_receipt_out"][0]["company_id"]} AND cabang_id = {result_inv_receipt["inv_receipt_out"][0]["cabang_id"]} AND produk_id = {result_inv_receipt["inv_receipt_out"][0]["produk_id"]}"""
+                                    WHERE company_id = {result_inv_receipt["inv_receipt_out"][0]["company_id"]} AND cabang_id = {result_inv_receipt["inv_receipt_out"][0]["cabang_id"]} AND produk_id = {result_inv_receipt["inv_receipt_out"][0]["produk_id"]} AND stock_condition = 'good'"""
             # await self.db.executeQuery(sql_delete_inv_detail_out)
 
             data_inv_detail_in = {
@@ -650,10 +568,11 @@ async def read_pending(
     filter: str = Query(None, alias="$filter"),
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_subsidiary_inventory_receipt_transfer()
     return await ob_data.read_pending(
-        orderby, limit, offset, filter, company_id, cabang_id
+        orderby, limit, offset, filter, company_id, cabang_id, is_pusat
     )
 
 
@@ -665,10 +584,11 @@ async def read_history(
     filter: str = Query(None, alias="$filter"),
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_subsidiary_inventory_receipt_transfer()
     return await ob_data.read_history(
-        orderby, limit, offset, filter, company_id, cabang_id
+        orderby, limit, offset, filter, company_id, cabang_id, is_pusat
     )
 
 

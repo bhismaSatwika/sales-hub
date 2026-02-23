@@ -43,7 +43,8 @@ class login(object):
                          dd.id_cabang as cabang_id,
                          dd.cabang_name,
                          aa.is_view_only,
-                         aa.uuid
+                         aa.uuid,
+                         dd.is_pusat
                 FROM master_user aa
                 LEFT JOIN master_user_role bb ON aa.user_role = bb.id_role
                 LEFT JOIN master_company cc ON aa.company_id = cc.id_company

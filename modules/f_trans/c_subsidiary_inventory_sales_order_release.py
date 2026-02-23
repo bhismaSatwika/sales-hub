@@ -357,6 +357,7 @@ class c_subsidiary_inventory_sales_order_release(object):
         sql_update_release_sales_order = self.update_status_release(data)
         # # update status release sales order menjadi true
         sql_update_hpp_sales_order = self.update_hpp(data)
+        sql_update_hpp_sales_order_header = self.update_hpp_header(data)
         # # delete inventory detail
         sql_delete_inventory_detail = self.delete_inventory_detail(data)
         # # insert mutasi out dari sales order
@@ -387,6 +388,7 @@ class c_subsidiary_inventory_sales_order_release(object):
                     sql_insert_mutasi,
                     sql_update_release_sales_order,
                     sql_update_hpp_sales_order,
+                    sql_update_hpp_sales_order_header,
                     sql_delete_inventory_detail,
                     sql_insert_inventory_detail,
                     sql_insert_delivery_order,
@@ -420,7 +422,10 @@ class c_subsidiary_inventory_sales_order_release(object):
                     WHERE id_trans = '{id_trans}' 
                 ) aa
                 LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
-                LEFT JOIN trans_inventory_detail as cc ON cc.produk_id = aa.produk_id  AND cc.company_id = aa.company_id  AND cc.cabang_id = aa.cabang_id
+                LEFT JOIN (
+                    SELECT * FROM  trans_inventory_detail
+                    WHERE stock_condition = 'good'
+                ) as cc ON cc.produk_id = aa.produk_id  AND cc.company_id = aa.company_id  AND cc.cabang_id = aa.cabang_id
                 GROUP BY 
                 aa.company_id,
                 aa.produk_id,
@@ -483,6 +488,7 @@ class c_subsidiary_inventory_sales_order_release(object):
                 WHERE A.company_id = {data['company_id']}
                 AND A.cabang_id = {data['cabang_id']}
                 AND A.id_trans = '{data['id_trans']}'
+                AND b.stock_condition = 'good'
             )"""
 
         return sql_insert_mutasi
@@ -500,6 +506,19 @@ class c_subsidiary_inventory_sales_order_release(object):
             AND A.produk_id = B.produk_id 
             AND A.company_id = B.company_id 
             AND A.cabang_id = B.cabang_id
+        """
+        return sql_update_hpp
+
+    def update_hpp_header(self, data):
+        sql_update_hpp = f"""
+            UPDATE trans_inventory_subsidiary_sales_order_header A
+            SET harga_total_hpp = b.total_hpp
+            FROM (
+                SELECT id_trans, SUM(harga_total_hpp) as total_hpp FROM trans_inventory_subsidiary_sales_order A
+                WHERE id_trans = '{data['id_trans']}'
+                GROUP BY id_trans
+            ) B
+            WHERE A.id_trans = B.id_trans;
         """
         return sql_update_hpp
 
@@ -549,7 +568,8 @@ class c_subsidiary_inventory_sales_order_release(object):
             SELECT produk_id
             FROM trans_inventory_subsidiary_sales_order 
 			WHERE id_trans = '{data['id_trans']}'
-        )"""
+        ) AND stock_condition = 'good'
+        """
 
         # print("\n\n\n\n\n")
         # print("Delete Inventory Detail")
@@ -604,6 +624,7 @@ class c_subsidiary_inventory_sales_order_release(object):
                 )
                 and company_id = {self.detail_data_mutasi["company_id"]} 
                 and cabang_id = {self.detail_data_mutasi["cabang_id"]}
+                AND stock_condition = 'good'
                 GROUP BY
                 produk_id,
                 company_id,
