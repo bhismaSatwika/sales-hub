@@ -246,7 +246,9 @@ class c_subsidiary_inventory_receipt_transfer(object):
         SELECT count(*) count from trans_inventory_subsidiary_receipt_transfer
         WHERE id_trans = '{data_where_update['id_trans']}' and status_release = true
         """
+
         res = await self.db.executeToDict(get_release_status)
+        await self.cek_stok()
         result = res[0]["count"]
         if result > 0:
             message = {"status": "Success", "msg": "Data sudah di release sebelumnya"}
@@ -548,6 +550,21 @@ class c_subsidiary_inventory_receipt_transfer(object):
         except Exception as e:
             message = {"status": False, "msg": "Eror. Cek query."}
         return message
+
+    async def cek_stok(self, data):
+        sql = f"""
+            SELECT B.qty as transfered_qty, C.qty as sisa_qty FROM trans_inventory_subsidiary_receipt_transfer A
+            LEFT JOIN trans_inventory_holding_transfer B on A.id_trans_holding_transfer = B.id_trans
+            LEFT JOIN trans_inventory_detail C on B.produk_id = C.produk_id AND C.company_id = B.company_id AND B.cabang_id = C.cabang_id
+            WHERE A.id_trans = '{data["id_trans"]}'
+            """
+        res = await self.db.executeToDict(sql)
+        stock = res[0]
+
+        if stock["transfered_qty"] > stock["sisa_qty"]:
+            raise HTTPException(400, "Stok tidak mencukupi")
+        else:
+            return True
 
 
 """

@@ -22,12 +22,15 @@ class c_stock_report(object):
   B.company_name,
   C.cabang_name,
   D.nama_produk,
-  qty_submitted,
-  A.qty_received,
-  qty_transfered,
-  qty_dropship,
-  qty_sold,
-  qty_submitted + qty_received + qty_dropship - qty_transfered - qty_sold AS qty_current 
+  qty_submitted as direct_qty_submmited,
+  A.qty_received as direct_qty_received,
+  qty_transfered as direct_qty_transfered,
+  direct_qty_sold,
+  qty_submitted + qty_received  - qty_transfered - direct_qty_sold AS direct_qty_left,
+  dropship_qty_delivery,
+  dropship_qty_received,
+  dropship_qty_sold,
+  dropship_qty_delivery + dropship_qty_received - dropship_qty_sold as dropship_qty_left
 FROM
   (
         SELECT 
@@ -35,15 +38,20 @@ FROM
             SUM( CASE WHEN mutasi_type = 'ST' AND in_out = 'IN' AND company_id = 1 THEN qty ELSE 0 END) qty_submitted,
             SUM( CASE WHEN mutasi_type = 'TP' AND in_out = 'IN' THEN qty ELSE 0 END) qty_received,
             SUM( CASE WHEN mutasi_type = 'TP' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_transfered,
-            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' THEN qty ELSE 0 END) qty_sold,
-            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' AND company_id !=1 AND tabel_reference = 'trans_inventory_holding_delivery_preparation_header' THEN qty ELSE 0 END) qty_dropship
+            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' AND tabel_reference != 'trans_inventory_holding_delivery_preparation_header' THEN qty ELSE 0 END) direct_qty_sold,
+            SUM( CASE WHEN mutasi_type = 'DS' AND in_out = 'IN' AND company_id !=1 AND tabel_reference = 'trans_inventory_holding_delivery_preparation_header' THEN qty ELSE 0 END) dropship_qty_received,
+            SUM( CASE WHEN mutasi_type = 'SO' AND in_out = 'OUT' AND company_id !=1 AND tabel_reference = 'trans_inventory_holding_delivery_preparation_header' THEN qty ELSE 0 END) dropship_qty_sold
         FROM trans_inventory_detail_mutasi 
---         WHERE company_id != 1
         GROUP BY company_id, cabang_id, produk_id
         ) A
         LEFT JOIN master_company B on A.company_id = B.id_company
         LEFT JOIN master_company_cabang C on A.company_id = C.id_company and A.cabang_id = C.id_cabang
         LEFT JOIN master_produk D on A.produk_id = D.id_produk
+        LEFT JOIN (
+          SELECT A.cabang_id, A.company_id, B.qty as dropship_qty_delivery, B.produk_id FROM trans_inventory_holding_delivery_preparation_header A
+          LEFT JOIN trans_inventory_holding_delivery_preparation B on A.id_trans = B.id_trans
+          WHERE A.status_release = TRUE
+        ) E on A.produk_id = E.produk_id AND A.company_id = E.company_id AND A.cabang_id = E.cabang_id
         ORDER BY a.company_id, a.cabang_id
                 """
 

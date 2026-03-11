@@ -1,10 +1,13 @@
 from datetime import datetime
 import json
 from fastapi import HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
 from library import *
 import os
 from library.router import app
 from library.db import Db
+from openpyxl.styles import PatternFill, Font
+from openpyxl import Workbook
 
 
 class c_master_customer(object):
@@ -67,6 +70,98 @@ LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id
         data = {"data": result, "count": result_count[0]["count"]}
         return data
 
+    async def export_customer(
+        self,
+        company_id,
+        cabang_id,
+        is_pusat,
+    ):
+
+        filter_other = (
+            f"WHERE A.company_id = '{company_id}' AND A.cabang_id = '{cabang_id}'"
+        )
+
+        if company_id == 1 and cabang_id == 1:
+            filter_other = f""
+            filter_other_conj = f""
+        elif company_id != 1 and is_pusat == True:
+            filter_other = f"WHERE A.company_id = '{company_id}'"
+
+        sql = f"""
+            SELECT A.*, b.company_name, C.cabang_name from master_customer A
+            LEFT JOIN master_company B on A.company_id = B.id_company
+            LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id = C.id_cabang 
+            {filter_other}
+                    """
+
+        result = await self.db.executeToDict(sql)
+        print(sql)
+
+        wb = self.excel_return(result)
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=example.xlsx"},
+        )
+
+    def excel_return(self, result_data):
+
+        wb = Workbook()
+        ws = wb.active
+        ws["A1"].value = "ID SO"
+        ws["B1"].value = "ID Invoice"
+        ws["C1"].value = "Account VA"
+        ws["D1"].value = "Nama Customer"
+        ws["E1"].value = "Alamat"
+        ws["F1"].value = "NPWP"
+        ws["G1"].value = "KTP"
+        ws["H1"].value = "Nama Produk"
+        ws["I1"].value = "Tanggal"
+        ws["J1"].value = "Nama Company"
+        ws["K1"].value = "Nama Cabang"
+        ws["L1"].value = "Quantity"
+        ws["M1"].value = "Harga Satuan"
+        ws["N1"].value = "Harga Total"
+        ws["O1"].value = "PPN %"
+        ws["P1"].value = "PPN Value"
+        ws["Q1"].value = "PPH 22 %"
+        ws["R1"].value = "PPH 22 Value"
+        ws["S1"].value = "Biaya Admin"
+        ws["T1"].value = "Grand Total"
+        ws["U1"].value = "Pembayaran"
+        ws["V1"].value = "SalesMan"
+        ws["W1"].value = "Status Pembayaran"
+        ws["X1"].value = "Sisa Pembayaran"
+        ws["Y1"].value = "Harga Satuan HPP"
+        ws["Z1"].value = "Harga Total HPP"
+
+        if len(result_data) > 0:
+            data_key = []
+            i = 0
+
+        x = 0
+        for key, value in result_data[0].items():
+            # print(key, value)
+            data_key.append(key)
+            ws.cell(1, x + 1).font = Font(b=True, color="000000")
+            ws.cell(1, x + 1).fill = PatternFill(
+                start_color="ffff00", end_color="ffff00", fill_type="solid"
+            )
+            x = x + 1
+
+        for data in result_data:
+            data_export = []
+            for key in data_key[:-5]:
+                data_export.append(data[key])
+            ws.append(data_export)
+            i = i + 1
+
+        return wb
+
     async def create(self, data):
 
         data.update(
@@ -83,7 +178,7 @@ LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id
             await self.db.executeQuery(sqlString)
             message = {"status": "success"}
         except Exception as e:
-            # print(e)
+            print(e)
             message = {"status": "error : " + str(e)}
             raise HTTPException(400, ("The error is: ", str(e)))
         return message
@@ -135,7 +230,8 @@ LEFT JOIN master_company_cabang C on A.company_id = C.id_company AND A.cabang_id
 
         sql = f"""SELECT 
             id_customer AS value, 
-            CONCAT(nama_customer, ' (', LEFT(alamat, 30), ')') AS text 
+            CONCAT(nama_customer, ' (', LEFT(alamat, 30), ')') AS text,
+            is_pph
         FROM 
             master_customer 
         {where_sql}

@@ -441,7 +441,7 @@ class PDF(FPDF):
         self.cell(
             w=50,
             h=8,
-            text="Subtotal",
+            text="Subtotal 1",
             align="L",
             new_x="LMARGIN",
             new_y="TOP",
@@ -484,6 +484,7 @@ class PDF(FPDF):
             new_x="LMARGIN",
             new_y="NEXT",
         )
+
         self.set_x(full_w / 1.45)
         self.cell(
             w=50,

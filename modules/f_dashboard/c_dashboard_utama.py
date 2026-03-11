@@ -75,7 +75,7 @@ class c_dashboard_utama(object):
                 {where}
             """
 
-        print(sql)
+        # print(sql)
         try:
             result = await self.db.executeToDict(sql)
             print("\n\n\n\n", result)
@@ -122,7 +122,7 @@ class c_dashboard_utama(object):
         except Exception as e:
             message = {"status": "error"}
             raise HTTPException(400, ("The error is: ", str(e)))
-
+        print("\n\n\n\n")
         return result[0]["outstanding_payment"]
 
     async def get_paid_payment(
@@ -139,6 +139,7 @@ class c_dashboard_utama(object):
             gb = ""
         elif int(company_id) != 1 and is_pusat == True:
             where = f"""WHERE company_id = {company_id} AND tanggal BETWEEN '{tanggal_start}' AND '{tanggal}'"""
+            gb = "GROUP BY company_id"
 
         # sql = f"""SELECT
         #             company_id,
@@ -159,7 +160,7 @@ class c_dashboard_utama(object):
                 """
 
         try:
-            # print(sql)
+            print(sql)
             result = await self.db.executeToDict(sql)
             # print(result)
             if len(result) == 0:
@@ -295,7 +296,7 @@ class c_dashboard_utama(object):
                     WHERE complete_payment=FALSE {and_filter}"""
 
         try:
-            print(sql)
+            # print(sql)
             result = await self.db.executeToDict(sql)
             # print(result)
 
@@ -415,7 +416,7 @@ class c_dashboard_utama(object):
             + str_clause_count
         )
 
-        print(sql)
+        # print(sql)
 
         try:
             result = await self.db.executeToDict(sql)
@@ -440,8 +441,11 @@ class c_dashboard_utama(object):
         where = f"""and company_id = {company_id} AND cabang_id = {cabang_id}"""
         if int(company_id) == 1:
             where = ""
-        elif int(company_id) != 1 and is_pusat == True:
+
+        if int(company_id) != 1 and is_pusat == True:
             where = f"""and company_id = {company_id}"""
+
+        print(where)
 
         sql = f"""SELECT * FROM (SELECT
                     dd.company_name,
@@ -470,7 +474,7 @@ class c_dashboard_utama(object):
 
         try:
             result = await self.db.executeToDict(sql)
-            print(sql)
+            # print(sql)
             wb = self.generate_excel_outstanding_payment(result)
             buffer = io.BytesIO()
             wb.save(buffer)
@@ -722,7 +726,7 @@ class c_dashboard_utama(object):
         AND A.cabang_id = D.id_cabang
         """
         sql = query + str_clause
-        print(sql)
+        # print(sql)
 
         sql_2 = query + str_clause_count
 
@@ -792,11 +796,11 @@ class c_dashboard_utama(object):
         AND A.cabang_id = D.id_cabang
         """
 
-        print(sql)
+        # print(sql)
 
         try:
             result = await self.db.executeToDict(sql)
-            print(sql)
+            # print(sql)
             wb = self.generate_excel_sales_header(result)
             buffer = io.BytesIO()
             wb.save(buffer)
@@ -903,7 +907,7 @@ class c_dashboard_utama(object):
         sql_count = f"""SELECT COUNT(*) 
         FROM ({sql_2})  as subquery"""
 
-        print(sql)
+        # print(sql)
 
         try:
             result = await self.db.executeToDict(sql)
@@ -952,7 +956,7 @@ class c_dashboard_utama(object):
 
         try:
             result = await self.db.executeToDict(sql)
-            print(sql)
+            # print(sql)
             wb = self.generate_excel_sales_header_produk(result)
             buffer = io.BytesIO()
             wb.save(buffer)
@@ -1037,7 +1041,7 @@ async def read_outstanding_payment_detail(
     tanggal: str = Query(None, alias="tanggal"),
     company_id: int = Query(None, alias="company_id"),
     cabang_id: int = Query(None, alias="cabang_id"),
-    is_pusat: bool = Query(None, alias="$is_pusat"),
+    is_pusat: bool = Query(None, alias="is_pusat"),
 ):
     ob_data = c_dashboard_utama()
     return await ob_data.export_outstanding_payment(

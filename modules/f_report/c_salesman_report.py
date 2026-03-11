@@ -80,8 +80,7 @@ class c_salesman_report(object):
                 SUM ( CASE WHEN '{tanggal}':: DATE - A.tanggal_due_date > 0 THEN amount_total_outstanding ELSE 0 END ) AS total_overdue,
                 SUM ( A.amount_total - A.amount_total_outstanding ) AS total_paid 
                 FROM
-                trans_inventory_subsidiary_invoice
-                A LEFT JOIN trans_inventory_subsidiary_sales_order b ON A.id_trans_sales_order = b.id_trans 
+                trans_inventory_subsidiary_invoice A
                 LEFT JOIN trans_inventory_subsidiary_sales_order_header C ON A.id_trans_sales_order = C.id_trans 
                 
                 WHERE
@@ -222,12 +221,10 @@ class c_salesman_report(object):
                 SUM ( CASE WHEN '{tanggal}':: DATE - A.tanggal_due_date > 0 THEN amount_total_outstanding ELSE 0 END ) AS total_overdue,
                 SUM ( A.amount_total - A.amount_total_outstanding ) AS total_paid 
                 FROM
-                trans_inventory_subsidiary_invoice
-                A LEFT JOIN trans_inventory_subsidiary_sales_order b ON A.id_trans_sales_order = b.id_trans 
+                trans_inventory_subsidiary_invoice A 
                 LEFT JOIN trans_inventory_subsidiary_sales_order_header C ON A.id_trans_sales_order = C.id_trans 
-                
                 WHERE
-                b.status_release = TRUE 
+                c.status_release = TRUE 
                 GROUP BY
                 c.salesman 
                 )

@@ -1019,6 +1019,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                         ll.id_trans as id_inv_pre,
                         gg.account_va,
                         gg.nama_customer,
+                        gg.alamat,
                         gg.npwp,
                         gg.no_ktp,
                         bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
@@ -1091,26 +1092,27 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         ws["C1"].value = "PRE Invoice"
         ws["D1"].value = "Account VA"
         ws["E1"].value = "Nama Customer"
-        ws["F1"].value = "NPWP"
-        ws["G1"].value = "KTP"
-        ws["H1"].value = "Nama Produk"
-        ws["I1"].value = "Tanggal"
-        ws["J1"].value = "Nama Company"
-        ws["K1"].value = "Nama Cabang"
-        ws["L1"].value = "Quantity"
-        ws["M1"].value = "Harga Satuan"
-        ws["N1"].value = "Harga Total"
-        ws["O1"].value = "PPN %"
-        ws["P1"].value = "PPN Value"
-        ws["Q1"].value = "PPH 22 %"
-        ws["R1"].value = "PPH 22 Value"
-        ws["S1"].value = "Biaya Admin"
-        ws["T1"].value = "Grand Total"
-        ws["U1"].value = "Pembayaran"
-        ws["V1"].value = "Payment Pre INV"
-        ws["W1"].value = "SalesMan"
-        ws["X1"].value = "Harga Satuan HPP"
-        ws["Y1"].value = "Harga Total HPP"
+        ws["F1"].value = "Alamat"
+        ws["G1"].value = "NPWP"
+        ws["H1"].value = "KTP"
+        ws["I1"].value = "Nama Produk"
+        ws["J1"].value = "Tanggal"
+        ws["K1"].value = "Nama Company"
+        ws["L1"].value = "Nama Cabang"
+        ws["M1"].value = "Quantity"
+        ws["N1"].value = "Harga Satuan"
+        ws["O1"].value = "Harga Total"
+        ws["P1"].value = "PPN %"
+        ws["Q1"].value = "PPN Value"
+        ws["R1"].value = "PPH 22 %"
+        ws["S1"].value = "PPH 22 Value"
+        ws["T1"].value = "Biaya Admin"
+        ws["U1"].value = "Grand Total"
+        ws["V1"].value = "Pembayaran"
+        ws["W1"].value = "Payment Pre INV"
+        ws["X1"].value = "SalesMan"
+        ws["Y1"].value = "Harga Satuan HPP"
+        ws["Z1"].value = "Harga Total HPP"
 
         if len(result_data) > 0:
             data_key = []

@@ -88,9 +88,15 @@ class PDF(FPDF):
         full_width = self.w - self.l_margin - self.r_margin
 
         ######### SALES RESUME #############
+        inv_index = 0
         for index, value in enumerate(self.resume_sale_data):
             self.sales_resume(value)
-            self.inventory_data_resume(self.resume_inventory_data[index])
+
+            if self.resume_inventory_data[inv_index]["produk_id"] != value["produk_id"]:
+                inv_index += 1
+
+            self.inventory_data_resume(self.resume_inventory_data[inv_index])
+            inv_index += 1
 
     def dropship_data(self):
         for index, value in enumerate(self.resume_sale_data_dropship):

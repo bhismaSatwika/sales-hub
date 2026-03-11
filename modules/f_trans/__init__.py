@@ -16,6 +16,8 @@ __all__ = [
     "c_subsidiary_inventory_sales_order_dropship_release",
 "c_inventory_detail_bad_stock",
             "c_inventory_detail_bad_stock_release",
+            "c_inventory_subsidiary_invoice_canceled",
             ]
+            
             
             

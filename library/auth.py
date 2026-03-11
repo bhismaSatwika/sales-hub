@@ -1,14 +1,29 @@
+from fastapi import HTTPException
 from config import jwt_config, path_config, params
 import jwt
+from library.db import Db
 
 
 class __Auth:
 
     def __init__(self):
-
+        self.db = Db()
         self.secret_key = jwt_config.jwt_profile["key"]
         self.algoritma = jwt_config.jwt_profile["algoritma"]
         self.__user_id = None
+
+    async def get_version(self, version):
+        db = Db()
+        sql = """
+        SELECT version_id FROM version_apps
+        WHERE default_ = TRUE
+        """
+        res = await db.executeToDict(sql)
+        result = res[0]["version_id"]
+        if version != result:
+            return False
+
+        return True
 
     def __check_path(self, path: str):
         data = path_config.path_routes_not_auth
@@ -18,16 +33,28 @@ class __Auth:
                 return False
         return True
 
-    def validate(self, token, path):
+    async def __check_user_data(self, path, app_version):
+
+        if path.find("get_user_data") != -1 or not self.__check_path(path):
+
+            return True
+        else:
+            return await self.get_version(app_version)
+
+    async def validate(self, token, path, app_version):
+
         challenges = ['Token type="JWT"']
         # print(path)
         # print(self.__check_path(path))
         # print(not self.__valid(token))
 
         if not self.__valid(token) and self.__check_path(path):
-            return False
+            return False, "401"
 
-        return True
+        if not await self.__check_user_data(path, app_version):
+            return False, "426"
+
+        return True, 200
 
     def create_token(self, payload_data):
         # print('payload_data =',payload_data)
@@ -45,14 +72,6 @@ class __Auth:
             "user_data": {
                 "id_user": payload_data["id_user"],
                 "uuid": payload_data["uuid"],
-                # "username": payload_data["username"],
-                # "company_id": payload_data["company_id"],
-                # "company_name": payload_data["company_name"],
-                # "cabang_id": payload_data["cabang_id"],
-                # "cabang_name": payload_data["cabang_name"],
-                # "id_role": payload_data["id_role"],
-                # "role_data": payload_data["role_data"],
-                # "is_view_only": payload_data["is_view_only"],
             },
             "user_data_local": {
                 "id_user": payload_data["id_user"],
@@ -66,6 +85,7 @@ class __Auth:
                 "role_data": payload_data["role_data"],
                 "is_view_only": payload_data["is_view_only"],
                 "is_pusat": payload_data["is_pusat"],
+                "version_id": payload_data["version_id"],
             },
         }
 

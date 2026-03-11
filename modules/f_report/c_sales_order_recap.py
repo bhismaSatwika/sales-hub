@@ -180,30 +180,30 @@ class c_sales_order_recap(object):
         tanggal_start = data_where["tanggal_start"]
         tanggal_end = data_where["tanggal_end"]
 
-        sql_update_st_release_recap_header = f"""UPDATE trans_sales_recap_header SET status_release = 'true'
-                                    WHERE id = '{data_where['id']}'"""
+        # sql_update_st_release_recap_header = f"""UPDATE trans_sales_recap_header SET status_release = 'true'
+        #                             WHERE id = '{data_where['id']}'"""
 
-        sql_update_invoice = f"""UPDATE trans_inventory_subsidiary_invoice 
-            SET id_sales_report = '{data_where['number_report']}' 
-            WHERE
-            id_sales_report IS NULL AND 
-            tanggal_invoice BETWEEN '{tanggal_start}' and '{tanggal_end}'"""
+        # sql_update_invoice = f"""UPDATE trans_inventory_subsidiary_invoice
+        #     SET id_sales_report = '{data_where['number_report']}'
+        #     WHERE
+        #     id_sales_report IS NULL AND
+        #     tanggal_invoice BETWEEN '{tanggal_start}' and '{tanggal_end}'"""
 
-        sql_insert_recap_detail = f"""INSERT INTO trans_sales_recap_detail (id_header,invoice_number) 
-                               SELECT '{data_where['id']}',id_trans FROM trans_inventory_subsidiary_invoice
-                               where id_sales_report = '{data_where['number_report']}'"""
+        # sql_insert_recap_detail = f"""INSERT INTO trans_sales_recap_detail (id_header,invoice_number)
+        #                        SELECT '{data_where['id']}',id_trans FROM trans_inventory_subsidiary_invoice
+        #                        where id_sales_report = '{data_where['number_report']}'"""
 
-        trans = await self.db.executeTrans(
-            [
-                sql_update_st_release_recap_header,
-                sql_update_invoice,
-                sql_insert_recap_detail,
-            ]
-        )
+        # trans = await self.db.executeTrans(
+        #     [
+        #         sql_update_st_release_recap_header,
+        #         sql_update_invoice,
+        #         sql_insert_recap_detail,
+        #     ]
+        # )
 
-        if trans["status"] == False:
-            print(str(trans["detail"]))
-            raise HTTPException(400, str(trans["detail"]))
+        # if trans["status"] == False:
+        #     print(str(trans["detail"]))
+        #     raise HTTPException(400, str(trans["detail"]))
 
         sql_resume_sale_direct = f"""
         SELECT
@@ -232,7 +232,8 @@ class c_sales_order_recap(object):
             produk_id 
             ) xx
         LEFT JOIN master_produk AA on AA.id_produk = XX.produk_id
-        LEFT JOIN master_produk_uom_satuan BB on AA.uom_satuan = BB.id_uom_satuan;
+        LEFT JOIN master_produk_uom_satuan BB on AA.uom_satuan = BB.id_uom_satuan
+        ORDER BY xx.produk_id;
             """
 
         sql_resume_sale_dropship = f"""
@@ -262,7 +263,8 @@ class c_sales_order_recap(object):
             produk_id 
             ) xx
         LEFT JOIN master_produk AA on AA.id_produk = XX.produk_id
-        LEFT JOIN master_produk_uom_satuan BB on AA.uom_satuan = BB.id_uom_satuan;
+        LEFT JOIN master_produk_uom_satuan BB on AA.uom_satuan = BB.id_uom_satuan
+        ORDER BY xx.produk_id;
             """
 
         sql_resume_inventory = f"""SELECT
@@ -293,7 +295,9 @@ class c_sales_order_recap(object):
                         GROUP BY
                             t.produk_id,
                             p.nama_produk,
-                            q.uom_satuan;
+                            q.uom_satuan
+                        ORDER BY
+                            t.produk_id;
                             """
 
         sql_detail_sales_direct = f"""	SELECT
@@ -452,7 +456,7 @@ class c_sales_order_recap(object):
                 produk_id,
                 order_type
                 FROM
-                trans_sales_recap_detail aa
+                trans_sales_recap_detail aa 
                 LEFT JOIN trans_inventory_subsidiary_invoice bb ON aa.invoice_number = bb.id_trans
                 LEFT JOIN trans_inventory_subsidiary_sales_order_header D on bb.id_trans_sales_order = D.id_trans
                 LEFT JOIN trans_inventory_subsidiary_sales_order cc ON bb.id_trans_sales_order = cc.id_trans 

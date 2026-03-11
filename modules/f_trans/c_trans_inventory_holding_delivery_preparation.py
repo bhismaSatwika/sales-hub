@@ -376,6 +376,7 @@ class c_trans_inventory_holding_delivery_preparation(object):
             "userupdate": auth.AuthAction.get_data_params("username"),
             "updateindb": datetime.today(),
             "status_release": True,
+            "tanggal_delivery": datetime.today(),
         }
 
         update_sales_order_hpp = f"""
