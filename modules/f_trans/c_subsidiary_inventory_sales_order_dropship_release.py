@@ -26,6 +26,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
         sql_insert_do = await self.insert_delivery_order(data)
         sql_insert_invoice = await self.insert_invoice_order()
         sql_update_hpp_so = self.update_hpp(data["id_trans"])
+        sql_update_hpp_so_header = self.update_hpp_header(data["id_trans"])
         # print(sql_insert_invoice)
 
         try:
@@ -33,6 +34,7 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
                 [
                     sql_insert_mutasi,
                     sql_update_delivery,
+                    sql_update_hpp_so_header,
                     sql_update_hpp_so,
                     sql_insert_do,
                     sql_insert_invoice,
@@ -133,6 +135,19 @@ class c_subsidiary_inventory_sales_order_dropship_release(object):
             WHERE A.id_trans = B.id_trans_sales_order AND a.produk_id = B.produk_id;
         """
         return sql_update_hpp
+
+    def update_hpp_header(self, id_trans):
+        sql_update_hpp_header = f"""
+           
+          UPDATE trans_inventory_subsidiary_sales_order_header A
+            SET harga_total_hpp = B.grand_total
+            FROM (
+            SELECT A.grand_total, A.id_trans_sales_order FROM trans_inventory_holding_delivery_preparation_header A
+            WHERE A.id_trans_sales_order = '{id_trans}'
+            ) B
+            WHERE A.id_trans = B.id_trans_sales_order;
+        """
+        return sql_update_hpp_header
 
     async def get_id_trans_kode_do(
         self, company_id, cabang_id, kode_trans, tahun, bulan

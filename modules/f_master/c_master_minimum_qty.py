@@ -94,6 +94,21 @@ class c_master_minimum_qty(object):
             raise HTTPException(400, ("The error is: ", str(e)))
         return message
 
+    async def get_min_max_qty(self, produk_id, order_type):
+
+        sql = f"""SELECT
+        COALESCE(MAX(CASE WHEN min_max = 'max' THEN qty END), 0) AS max_qty,
+        COALESCE(MAX(CASE WHEN min_max = 'min' THEN qty END), 0) AS min_qty
+        FROM master_minimum_qty
+        WHERE produk_id = {produk_id}
+        AND status_release = TRUE
+        AND status_aktif = TRUE
+        AND order_type = '{order_type}';"""
+
+        res = await self.db.executeToDict(sql)
+        result = res[0]
+        return result
+
     async def get_minimum_qty(self, produk_id):
 
         sql = f"""SELECT
@@ -207,6 +222,12 @@ async def get_minimum_qty_where_condition(param: object = Query(None, alias="par
 async def get_minimum_qty(id_produk):
     ob_data = c_master_minimum_qty()
     return await ob_data.get_minimum_qty(id_produk)
+
+
+@app.get("/api/f_master/c_master_minimum_qty/get_min_max_qty")
+async def get_min_max_qty(id_produk, order_type):
+    ob_data = c_master_minimum_qty()
+    return await ob_data.get_min_max_qty(id_produk, order_type)
 
 
 @app.post("/api/f_master/c_master_minimum_qty/release")

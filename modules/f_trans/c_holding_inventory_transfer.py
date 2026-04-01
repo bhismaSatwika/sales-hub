@@ -47,6 +47,8 @@ class c_holding_inventory_transfer(object):
         query = f"""SELECT * FROM (
                 SELECT
                     aa.id_trans,
+                    CASE WHEN aa.include_submit = true THEN 'Include' ELSE 'Exclude' END as ket_include_submit,
+                    aa.include_submit,
                     bb.id_produk as produk_id,
                     bb.nama_produk||'('||dd.uom_satuan||')' as nama_produk,
                     cc.id_kategori as kategori_id,
@@ -364,7 +366,8 @@ class c_holding_inventory_transfer(object):
     async def release(self, data):
         data_where_update = data["data_where_update"]
         # -------------------------------------- untuk kebutuhan validasi ---------------------------------
-        await self.validasi_quantity(data_where_update)
+        if data_where_update["include_submit"] == False:
+            await self.validasi_quantity(data_where_update)
 
         sql_update_status_release_inv_transfer = f"""UPDATE trans_inventory_holding_transfer SET status_release = 'true'
         WHERE id_trans = '{data_where_update['id_trans']}'"""
@@ -421,15 +424,36 @@ class c_holding_inventory_transfer(object):
             data_inv_receipt_transfer,
             "trans_inventory_subsidiary_receipt_transfer",
         )
-        # await self.db.executeQuery(sql_insert_inv_receipt_transfer)
 
-        # eksekusi all transaksi insert, update, delete
         try:
             trans = await self.db.executeTrans(
                 [
                     sql_update_status_release_inv_transfer,
                     sql_insert_inv_receipt_transfer,
                 ]
+            )
+
+            if trans["status"] == False:
+                message = {"status": False, "msg": "Eror. Cek query."}
+                raise HTTPException(400, str(trans["detail"]))
+
+            message = {"status": True, "msg": "success"}
+
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return message
+
+    async def revert(self, data):
+        sql_update_status_release_inv_transfer = f"""UPDATE trans_inventory_holding_transfer SET status_release = 'false' WHERE id_trans = '{data["id_trans"]}'"""
+
+        sql_delete_receive_transfer = f"""
+            DELETE FROM trans_inventory_subsidiary_receipt_transfer
+            WHERE id_trans_holding_transfer = '{data["id_trans"]}'
+        """
+
+        try:
+            trans = await self.db.executeTrans(
+                [sql_update_status_release_inv_transfer, sql_delete_receive_transfer]
             )
 
             if trans["status"] == False:
@@ -501,7 +525,7 @@ class c_holding_inventory_transfer(object):
             return True
         else:
             message = "Cek Jumlah stok/kuantiti untuk produk Tersebut " + str(
-                result_valid_detail["inv_detail"][0]["count"]
+                result_inv_valid["inv_valid"][0]["qty_validasi"]
             )
 
             raise HTTPException(400, message)
@@ -554,6 +578,7 @@ async def create(
     company_id: int = Form(...),
     qty: int = Form(...),
     harga_satuan: float = Form(...),
+    include_submit: bool = Form(...),
     harga_total: float = Form(...),
     tanggal: str = Form(...),
     to_company_id: int = Form(...),
@@ -567,6 +592,7 @@ async def create(
         "cabang_id": cabang_id,
         "company_id": company_id,
         "qty": qty,
+        "include_submit": include_submit,
         "harga_satuan": harga_satuan,
         "harga_total": harga_total,
         "tanggal": tanggal,
@@ -585,6 +611,7 @@ async def update(
     cabang_id: int = Form(...),
     company_id: int = Form(...),
     qty: int = Form(...),
+    include_submit: bool = Form(...),
     harga_satuan: float = Form(...),
     harga_total: float = Form(...),
     tanggal: str = Form(...),
@@ -601,6 +628,7 @@ async def update(
         "company_id": company_id,
         "qty": qty,
         "harga_satuan": harga_satuan,
+        "include_submit": include_submit,
         "harga_total": harga_total,
         "tanggal": tanggal,
         "to_company_id": to_company_id,
@@ -647,6 +675,14 @@ async def release(request: Request):
     # data = json.loads(data['param'])
     ob_data = c_holding_inventory_transfer()
     return await ob_data.release(data)
+
+
+@app.post("/api/f_trans/c_holding_inventory_transfer/revert")
+async def revert(request: Request):
+    data = await request.json()
+    # data = json.loads(data['param'])
+    ob_data = c_holding_inventory_transfer()
+    return await ob_data.revert(data)
 
 
 @app.get("/api/f_trans/c_holding_inventory_transfer/get_id_trans_kode")

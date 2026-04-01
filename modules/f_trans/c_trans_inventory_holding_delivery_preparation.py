@@ -57,7 +57,7 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     SELECT
                     
                     aa.id_trans,
-
+                    aa.id_trans_sales_order,
                     aa.company_id,
                     aa.cabang_id,
                     aa.salesman,
@@ -76,17 +76,18 @@ class c_trans_inventory_holding_delivery_preparation(object):
                     gg.nama_customer,
                     gg.account_va,
                     gg.account_bank_name,
-                    hh.md5_file,
                     aa.is_delivered,
                     ii.pembayaran,
-                    jj.is_canceled
+                    jj.is_canceled,
+                    ( CASE WHEN jj.complete_payment = TRUE THEN 'Lunas' ELSE 'Belum Lunas' END ) AS ket_complete_payment,
+                    jj.complete_payment,
+                    jj.md5_file
                     FROM
                     trans_inventory_holding_delivery_preparation_header aa
                     LEFT JOIN master_company ee ON aa.company_id = ee.id_company
                     LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
                     AND aa.company_id = ff.id_company
                     LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
-                    LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
                     LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran 
                     LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans_sales_order = jj.id_trans_sales_order
                 ) A

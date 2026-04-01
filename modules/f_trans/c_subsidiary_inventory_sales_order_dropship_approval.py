@@ -178,16 +178,14 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
             WHERE detail_id = {detail_id} and active = true"""
             queries.append(sql_update_status_approval_detail)
         else:
-            # sql_update_status_approval_detail = f"""update trans_approval_detail
-            # SET approval_status = 1
-            # WHERE detail_id = {data["detail_id"]} and active = true"""
-            # queries.append(sql_update_status_approval_detail)\
-            ##TODO release dropship
+
             print("\n\ntrueeeee\n\n")
 
             kode = await self.get_id_trans_kode(
                 data["company_id"], data["cabang_id"], "DLV"
             )
+
+            print("kode", kode)
 
             no_urut = kode["no_urut"]
             id_trans = kode["id_trans"]
@@ -291,20 +289,20 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                                                     )"""
         queries.append(sql_update_status_approval_header)
 
-        print(queries)
+        # print(queries)
 
-        try:
+        # try:
 
-            res = await self.db.executeTrans(queries)
-            if res["status"] == False:
-                print(res["detail"])
-                raise HTTPException(status_code=400, detail=res["detail"])
+        #     res = await self.db.executeTrans(queries)
+        #     if res["status"] == False:
+        #         print(res["detail"])
+        #         raise HTTPException(status_code=400, detail=res["detail"])
 
-            message = {"status": "success"}
-        except Exception as e:
-            message = {"status": "error"}
-            raise HTTPException(status_code=400, detail=str(e))
-        return message
+        #     message = {"status": "success"}
+        # except Exception as e:
+        #     message = {"status": "error"}
+        #     raise HTTPException(status_code=400, detail=str(e))
+        # return message
 
     async def reject(self, data):
         action_time = datetime.now()
@@ -355,6 +353,7 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                         FROM trans_inventory_holding_delivery_preparation_header
                         WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal) = {tahun} AND DATE_PART('month', tanggal) = {bulan}"""
         no_urut = await self.db.executeToDict(sql_no_urut)
+        print(sql_no_urut)
         # print(no_urut[0]['current_no_urut_convert'])
 
         id_trans = (

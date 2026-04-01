@@ -240,7 +240,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
 
         return data_kode
 
-    async def release(self, data):
+    async def release_legacy(self, data):
         data_where_update = data["data_where_update"]
         get_release_status = f"""
         SELECT count(*) count from trans_inventory_subsidiary_receipt_transfer
@@ -248,11 +248,13 @@ class c_subsidiary_inventory_receipt_transfer(object):
         """
 
         res = await self.db.executeToDict(get_release_status)
-        await self.cek_stok()
+        await self.cek_stok(data_where_update)
         result = res[0]["count"]
         if result > 0:
             message = {"status": "Success", "msg": "Data sudah di release sebelumnya"}
             return message
+
+        username = auth.AuthAction.get_data_params("username")
 
         try:
             sql_inv_receipt_in = f"""
@@ -351,7 +353,7 @@ class c_subsidiary_inventory_receipt_transfer(object):
                 data_inv_mutasi_out, "trans_inventory_detail_mutasi"
             )
             # await self.db.executeQuery(sql_insert_inv_mutasi_out)
-            print("Daerah 1")
+            # print("Daerah 1")
 
         except Exception as e:
 
@@ -414,6 +416,8 @@ class c_subsidiary_inventory_receipt_transfer(object):
                                         cabang_id
                                         ) aa"""
 
+            print(sql_insert_inv_mutasi_in)
+            print(sql_insert_inv_mutasi_out)
             trans = await self.db.executeTrans(
                 [sql_insert_inv_mutasi_in, sql_insert_inv_mutasi_out]
             )
@@ -486,6 +490,11 @@ class c_subsidiary_inventory_receipt_transfer(object):
             # await self.db.executeQuery(sql_insert_inv_detail_out)
 
             # eksekusi all transaksi insert, update, delete
+            print(sql_update_status_release_inv_receipt)
+            print(sql_delete_inv_detail_in)
+            print(sql_delete_inv_detail_out)
+            print(sql_insert_inv_detail_in)
+            print(sql_insert_inv_detail_out)
             trans = await self.db.executeTrans(
                 [
                     sql_update_status_release_inv_receipt,
@@ -531,6 +540,227 @@ class c_subsidiary_inventory_receipt_transfer(object):
 
         message = {"status": True, "msg": "success"}
 
+        return message
+
+    async def release(self, data):
+        data_where_update = data["data_where_update"]
+        get_release_status = f"""
+        SELECT count(*) count from trans_inventory_subsidiary_receipt_transfer
+        WHERE id_trans = '{data_where_update['id_trans']}' and status_release = true
+        """
+
+        res = await self.db.executeToDict(get_release_status)
+        result = res[0]["count"]
+        if result > 0:
+            message = {"status": "Success", "msg": "Data sudah di release sebelumnya"}
+            return message
+
+        username = auth.AuthAction.get_data_params("username")
+
+        transfer_data_sql = f"""
+            SELECT
+                B.company_id,
+                B.cabang_id,
+                B.to_company_id,
+                B.to_cabang_id,
+                B.include_submit,
+                B.produk_id,
+                B.harga_satuan,
+                B.harga_total,
+                B.transport_cost_total,
+                ROUND((b.harga_total + b.transport_cost_total) / b.qty, 2) as harga_satuan_after_tc
+                FROM
+                trans_inventory_subsidiary_receipt_transfer
+                A LEFT JOIN trans_inventory_holding_transfer B ON A.id_trans_holding_transfer = B.id_trans 
+                WHERE
+                A.id_trans = '{data_where_update['id_trans']}'
+            """
+
+        queries = []
+
+        transfer_data = await self.db.executeToDict(transfer_data_sql)
+        transfer_data = transfer_data[0]
+
+        if transfer_data["include_submit"] == True:
+            sql_insert_inv_submit = f"""
+            INSERT INTO "public"."trans_inventory_detail_mutasi" ("produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate", "in_out", "mutasi_type", "id_references", "tabel_reference", "tanggal", "stock_condition") 
+            SELECT
+                    bb.produk_id,
+                    aa.company_id,
+                    aa.cabang_id,
+                    bb.qty,
+                    bb.harga_satuan,
+                    bb.harga_total,
+                    now() as updateindb,
+                    '{username}' as userupdate,
+                    'IN' as in_out,
+                    'ST' as mutasi_type,
+                    aa.id_trans as id_references,
+                    'trans_inventory_subsidiary_receipt_transfer' as tabel_reference,
+                    now()::DATE as tanggal,
+                    'good' as stock_condition
+            FROM
+            trans_inventory_subsidiary_receipt_transfer aa
+            LEFT JOIN trans_inventory_holding_transfer bb ON aa.id_trans_holding_transfer = bb.id_trans 
+            WHERE
+            aa.id_trans = '{data_where_update['id_trans']}'
+            """
+
+            queries.append(sql_insert_inv_submit)
+        else:
+            await self.cek_stok(data_where_update)
+
+        sql_update_status_release_receipt = f"""UPDATE trans_inventory_subsidiary_receipt_transfer SET status_release = 'true', tanggal_receipt = now()
+            WHERE id_trans = '{data_where_update['id_trans']}'"""
+
+        sql_insert_mutasi_out = f"""
+            INSERT INTO "public"."trans_inventory_detail_mutasi" ("produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate", "in_out", "mutasi_type", "id_references", "tabel_reference", "tanggal", "stock_condition") 
+                SELECT
+                bb.produk_id,
+                aa.company_id,
+                aa.cabang_id,
+                bb.qty,
+                bb.harga_satuan,
+                bb.harga_total,
+                now() as updateindb,
+                '{username}' as userupdate,
+                'OUT' as in_out,
+                'TP' as mutasi_type,
+                aa.id_trans as id_references,
+                'trans_inventory_subsidiary_receipt_transfer' as tabel_reference,
+                now()::DATE as tanggal,
+                'good' as stock_condition
+            FROM
+            trans_inventory_subsidiary_receipt_transfer aa
+            LEFT JOIN trans_inventory_holding_transfer bb ON aa.id_trans_holding_transfer = bb.id_trans 
+            WHERE
+            aa.id_trans = '{data_where_update['id_trans']}'
+        """
+
+        sql_insert_mutasi_in = f"""
+        INSERT INTO "public"."trans_inventory_detail_mutasi" ("produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate", "in_out", "mutasi_type", "id_references", "tabel_reference", "tanggal", "stock_condition") 
+        SELECT 
+            bb.produk_id,
+            aa.company_id,
+            aa.cabang_id,
+            bb.qty,
+            ROUND((bb.harga_total+bb.transport_cost_total)/bb.qty,2) as harga_satuan,
+            bb.harga_total+bb.transport_cost_total as harga_total,
+            now() as updateindb,
+            '{username}' as userupdate,
+            'IN' as in_out,
+            'TP' as mutasi_type,
+            aa.id_trans as id_references,
+            'trans_inventory_subsidiary_receipt_transfer' as tabel_reference,
+            now()::DATE as date,
+            'good'
+        FROM trans_inventory_subsidiary_receipt_transfer aa
+        LEFT JOIN trans_inventory_holding_transfer bb ON aa.id_trans_holding_transfer = bb.id_trans
+        WHERE aa.id_trans = '{data_where_update['id_trans']}';
+        """
+
+        sql_delete_inv_detail_in = f"""DELETE FROM trans_inventory_detail 
+                                    WHERE company_id = {transfer_data["company_id"]} AND cabang_id = {transfer_data["cabang_id"]} AND produk_id = {transfer_data["produk_id"]} AND stock_condition = 'good'"""
+
+        sql_delete_inv_detail_out = f"""DELETE FROM trans_inventory_detail 
+                                WHERE company_id = {transfer_data["to_company_id"]} AND cabang_id = {transfer_data["to_cabang_id"]} AND produk_id = {transfer_data["produk_id"]} AND stock_condition = 'good'"""
+
+        sql_insert_inventory_detail_in = f"""
+            INSERT INTO "public"."trans_inventory_detail" ("produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate", "stock_condition") 
+            SELECT
+                A.produk_id,
+                A.company_id,
+                A.cabang_id,
+                COALESCE(A.qty_in - qty_out, 0) AS qty, 
+                CASE
+                    WHEN COALESCE(( qty_in - qty_out ),0) = 0 THEN
+                    0 ELSE ROUND( ( ht_in - ht_out ) / ( qty_in - qty_out ), 2 ) 
+                END AS harga_satuan,
+                COALESCE(ht_in - ht_out, 0) AS harga_total,
+                now() as updateindb,
+                'user' as userupdate,
+                'good' as stock_condition
+                FROM
+                (
+                    SELECT
+                    produk_id,
+                    company_id,
+                    cabang_id,
+                SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END ) qty_in,
+                SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END ) qty_out,
+                SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END ) ht_in,
+                SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END ) ht_out 
+                FROM
+                trans_inventory_detail_mutasi
+                GROUP BY
+                produk_id,
+                company_id,
+                cabang_id 
+                ) A 
+                WHERE {transfer_data["company_id"]} = A.company_id AND {transfer_data["cabang_id"]} = A.cabang_id AND A.produk_id = {transfer_data["produk_id"]} 
+        """
+
+        sql_insert_inventory_detail_out = f"""
+            INSERT INTO "public"."trans_inventory_detail" ("produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate", "stock_condition") 
+            SELECT
+                A.produk_id,
+                A.company_id,
+                A.cabang_id,
+                COALESCE(A.qty_in - qty_out, 0) AS qty, 
+                CASE
+                    WHEN COALESCE(( qty_in - qty_out ),0) = 0 THEN
+                    0 ELSE ROUND( ( ht_in - ht_out ) / ( qty_in - qty_out ), 2 ) 
+                END AS harga_satuan,
+                COALESCE(ht_in - ht_out, 0) AS harga_total,
+                now() as updateindb,
+                'user' as userupdate,
+                'good' as stock_condition
+                FROM
+                (
+                    SELECT
+                    produk_id,
+                    company_id,
+                    cabang_id,
+                SUM ( CASE WHEN in_out = 'IN' THEN qty ELSE 0 END ) qty_in,
+                SUM ( CASE WHEN in_out = 'OUT' THEN qty ELSE 0 END ) qty_out,
+                SUM ( CASE WHEN in_out = 'IN' THEN harga_total ELSE 0 END ) ht_in,
+                SUM ( CASE WHEN in_out = 'OUT' THEN harga_total ELSE 0 END ) ht_out 
+                FROM
+                trans_inventory_detail_mutasi
+                GROUP BY
+                produk_id,
+                company_id,
+                cabang_id 
+                ) A 
+                WHERE  A.company_id  = {transfer_data["to_company_id"]} AND A.cabang_id =  {transfer_data["to_cabang_id"]}  AND A.produk_id = {transfer_data["produk_id"]} 
+        """
+
+        print(sql_update_status_release_receipt)
+        print(sql_insert_mutasi_out)
+        print(sql_insert_mutasi_in)
+        print(sql_delete_inv_detail_in)
+        print(sql_delete_inv_detail_out)
+        print(sql_insert_inventory_detail_in)
+        print(sql_insert_inventory_detail_out)
+
+        queries.append(sql_update_status_release_receipt)
+        queries.append(sql_insert_mutasi_out)
+        queries.append(sql_insert_mutasi_in)
+        queries.append(sql_delete_inv_detail_in)
+        queries.append(sql_delete_inv_detail_out)
+        queries.append(sql_insert_inventory_detail_in)
+        queries.append(sql_insert_inventory_detail_out)
+
+        # print(queries)
+
+        trans = await self.db.executeTrans(queries)
+
+        if trans["status"] == False:
+
+            message = {"status": False, "msg": "Eror. Cek query."}
+            raise HTTPException(400, "The error is: " + str(trans["detail"]))
+
+        message = {"status": True, "msg": "success"}
         return message
 
     async def reject(self, data):

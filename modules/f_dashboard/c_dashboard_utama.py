@@ -902,7 +902,7 @@ class c_dashboard_utama(object):
 
         sql = query + str_clause
 
-        sql_2 = sql + str_clause_count
+        sql_2 = query + str_clause_count
 
         sql_count = f"""SELECT COUNT(*) 
         FROM ({sql_2})  as subquery"""

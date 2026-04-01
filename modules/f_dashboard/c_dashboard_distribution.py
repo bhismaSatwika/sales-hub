@@ -152,11 +152,12 @@ class c_dashboard_distribution(object):
         """
 
         sql = query + str_clause
-        sql_2 = sql + str_clause_count
+        sql_2 = query + str_clause_count
         print(sql)
 
         sql_count = f"""SELECT COUNT(*) 
         FROM ({sql_2})  as subquery"""
+        print(sql_count)
 
         data = {
             "data": await self.db.executeToDict(sql),
