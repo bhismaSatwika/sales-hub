@@ -280,8 +280,8 @@ ORDER BY company_id;
                                                         SELECT A
             .id_trans,
             C.company_name,
-            A.order_type,
             D.cabang_name,
+            A.order_type,
             B.nama_produk,
             A.qty,
             CASE

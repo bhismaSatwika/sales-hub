@@ -296,7 +296,7 @@ class c_dashboard_utama(object):
                     WHERE complete_payment=FALSE {and_filter}"""
 
         try:
-            # print(sql)
+            print(sql)
             result = await self.db.executeToDict(sql)
             # print(result)
 

@@ -206,7 +206,8 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                                         description,
                                         transport_cost,
                                         no_urut,
-                                        id_trans_sales_order
+                                        id_trans_sales_order,
+                                        tanggal_insert
                                         )
 
                                             SELECT
@@ -225,7 +226,8 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                                                 description,
                                                 0 as transport_cost,
                                                 {no_urut} as no_urut,
-                                                id_trans
+                                                id_trans,
+                                                now()::DATE as tanggal_insert
                                             FROM trans_inventory_subsidiary_sales_order_header 
                                         WHERE company_id = {data[ 'company_id' ]}  AND cabang_id = {data[ 'cabang_id' ]} AND id_trans ='{data[ 'id_trans' ]}'"""
 
@@ -289,20 +291,20 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                                                     )"""
         queries.append(sql_update_status_approval_header)
 
-        # print(queries)
+        print(queries)
 
-        # try:
+        try:
 
-        #     res = await self.db.executeTrans(queries)
-        #     if res["status"] == False:
-        #         print(res["detail"])
-        #         raise HTTPException(status_code=400, detail=res["detail"])
+            res = await self.db.executeTrans(queries)
+            if res["status"] == False:
+                print(res["detail"])
+                raise HTTPException(status_code=400, detail=res["detail"])
 
-        #     message = {"status": "success"}
-        # except Exception as e:
-        #     message = {"status": "error"}
-        #     raise HTTPException(status_code=400, detail=str(e))
-        # return message
+            message = {"status": "success"}
+        except Exception as e:
+            message = {"status": "error"}
+            raise HTTPException(status_code=400, detail=str(e))
+        return message
 
     async def reject(self, data):
         action_time = datetime.now()
@@ -351,7 +353,7 @@ class c_subsidiary_inventory_sales_order_dropship_approval(object):
                             LPAD( CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ), 4, '0' ) AS current_no_urut_convert,
                             CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ) AS current_no_urut 
                         FROM trans_inventory_holding_delivery_preparation_header
-                        WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal) = {tahun} AND DATE_PART('month', tanggal) = {bulan}"""
+                        WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal_insert) = {tahun} AND DATE_PART('month', tanggal_insert) = {bulan}"""
         no_urut = await self.db.executeToDict(sql_no_urut)
         print(sql_no_urut)
         # print(no_urut[0]['current_no_urut_convert'])
