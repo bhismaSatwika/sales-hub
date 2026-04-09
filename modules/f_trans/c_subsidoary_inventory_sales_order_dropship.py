@@ -315,7 +315,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                             LPAD( CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ), 4, '0' ) AS current_no_urut_convert,
                             CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ) AS current_no_urut 
                         FROM trans_inventory_subsidiary_sales_order_header
-                        WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal) = {tahun} AND DATE_PART('month', tanggal) = {bulan}"""
+                        WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal_approval) = {tahun} AND DATE_PART('month', tanggal_approval) = {bulan}"""
         no_urut = await self.db.executeToDict(sql_no_urut)
         # print(no_urut[0]['current_no_urut_convert'])
 
