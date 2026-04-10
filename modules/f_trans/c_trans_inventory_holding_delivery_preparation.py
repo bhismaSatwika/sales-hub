@@ -50,8 +50,7 @@ class c_trans_inventory_holding_delivery_preparation(object):
             "", None, None, filter, filter_other, filter_other_conj
         )
 
-        sql = (
-            f"""SELECT
+        query = f"""SELECT
                 A.*
                 FROM  (
                     SELECT
@@ -93,53 +92,11 @@ class c_trans_inventory_holding_delivery_preparation(object):
                 ) A
              
                """
-            + str_clause
-        )
+        sql = query + str_clause
         print(sql)
+        sql2 = query + str_clause_count
 
-        sql_count = (
-            f"""SELECT
-                COUNT(*) as count
-                FROM  (
-                    SELECT
-                    
-                    aa.id_trans,
-                    
-                    aa.company_id,
-                    aa.cabang_id,
-                    aa.salesman,
-                    aa.tanggal,
-                    aa.customer_id,
-                    aa.id_pembayaran,
-                    aa.status_release,
-                    aa.userupdate,
-                    aa.updateindb,
-                    ee.company_name,
-                    aa.harga_total,
-                    ff.cabang_name,
-                    ( CASE WHEN aa.status_release = TRUE THEN 'Released' ELSE 'Draft' END ) AS ket_status_release,
-                    gg.nama_customer,
-                    aa.is_delivered,
-
-                    gg.account_va,
-                    gg.account_bank_name,
-                    hh.md5_file,
-                    ii.pembayaran,
-                    jj.is_canceled
-                    FROM
-                    trans_inventory_holding_delivery_preparation_header aa
-                    LEFT JOIN master_company ee ON aa.company_id = ee.id_company
-                    LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang 
-                    AND aa.company_id = ff.id_company
-                    LEFT JOIN master_customer gg ON aa.customer_id = gg.id_customer
-                    LEFT JOIN trans_inventory_subsidiary_invoice hh ON aa.id_trans = hh.id_trans_sales_order
-                    LEFT JOIN master_jenis_pembayaran ii ON aa.id_pembayaran = ii.id_pembayaran
-                    LEFT JOIN trans_inventory_subsidiary_invoice_pre_payment jj ON aa.id_trans_sales_order = jj.id_trans_sales_order
-                ) A
-                """
-            + str_clause_count
-        )
-
+        sql_count = f"""SELECT COUNT(*) AS count FROM ({sql2}) A"""
         # print(sql)
 
         result = await self.db.executeToDict(sql)
