@@ -1,7 +1,9 @@
 from datetime import datetime
+import io
 import json
 from typing import List
 from fastapi import Query, Request, Form, UploadFile, File
+from fastapi.responses import StreamingResponse
 from library.router import app
 from library.db import Db
 from library import *
@@ -9,6 +11,8 @@ import os
 from modules import f_master
 from modules import f_trans
 import asyncio
+from openpyxl import Workbook
+from openpyxl.styles import PatternFill, Font
 
 
 class c_trans_inventory_detail(object):
@@ -235,6 +239,103 @@ class c_trans_inventory_detail(object):
         }
         return data
 
+    async def export_excel(self, company_id, cabang_id, is_cabang, is_pusat):
+        where = "WHERE stock_condition = 'good'"
+
+        if company_id != 1 and is_cabang == True:
+            filter_other = where + (
+                f"AND aa.company_id = '{company_id}' AND aa.cabang_id = '{cabang_id}'"
+            )
+
+        elif company_id == 1 and is_cabang == True:
+            filter_other = where
+
+        elif company_id == 1 and is_cabang == False:
+            filter_other = where + (
+                f"and aa.company_id = '{company_id}' AND aa.cabang_id = '{cabang_id}'"
+            )
+
+        if company_id != 1 and is_pusat == True and is_cabang == True:
+            filter_other = where + f" and aa.company_id = '{company_id}'"
+
+        sql = f"""
+        SELECT ee.company_name,
+            ff.cabang_name,
+            ((bb.nama_produk::text || ' ('::text) || dd.uom_satuan::text) || ')'::text AS nama_produk,
+            cc.kategori,
+            aa.qty,
+            dd.uom_satuan,
+            hh.uom_base_convert as qty_convert,
+            aa.qty * hh.uom_base_convert AS qty_base,
+            hh.uom_base_convert_name,
+            aa.harga_satuan,
+            aa.harga_total
+        FROM trans_inventory_detail aa
+            LEFT JOIN master_produk bb ON aa.produk_id = bb.id_produk
+            LEFT JOIN master_produk_kategori cc ON bb.kategori_produk = cc.id_kategori
+            LEFT JOIN master_produk_uom_satuan dd ON bb.uom_satuan = dd.id_uom_satuan
+            LEFT JOIN master_company ee ON aa.company_id = ee.id_company
+            LEFT JOIN master_company_cabang ff ON aa.cabang_id = ff.id_cabang AND aa.company_id = ff.id_company
+            LEFT JOIN master_produk_kategori gg ON bb.kategori_produk = gg.id_kategori
+            LEFT JOIN master_produk_uom_satuan hh ON bb.uom_satuan = hh.id_uom_satuan
+            {filter_other}
+        ORDER BY aa.produk_id, aa.company_id, aa.cabang_id
+            
+        """
+
+        result = await self.db.executeToDict(sql)
+        print(sql)
+
+        wb = self.excel_return(result)
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        return StreamingResponse(
+            buffer,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=example.xlsx"},
+        )
+
+    def excel_return(self, result_data):
+
+        wb = Workbook()
+        ws = wb.active
+        ws["A1"].value = "Nama Company"
+        ws["B1"].value = "Nama Cabang"
+        ws["C1"].value = "Nama Produk"
+        ws["D1"].value = "Kategori"
+        ws["E1"].value = "Qty"
+        ws["F1"].value = "UOM"
+        ws["G1"].value = "Convert Qty"
+        ws["H1"].value = "Qty Base"
+        ws["I1"].value = "UOM Convert"
+        ws["J1"].value = "Harga Satuan"
+        ws["K1"].value = "Harga Total"
+
+        if len(result_data) > 0:
+            data_key = []
+            i = 0
+
+        x = 0
+        for key, value in result_data[0].items():
+            # print(key, value)
+            data_key.append(key)
+            ws.cell(1, x + 1).font = Font(b=True, color="000000")
+            ws.cell(1, x + 1).fill = PatternFill(
+                start_color="ffff00", end_color="ffff00", fill_type="solid"
+            )
+            x = x + 1
+
+        for data in result_data:
+            data_export = []
+            for key in data_key:
+                data_export.append(data[key])
+            ws.append(data_export)
+            i = i + 1
+
+        return wb
+
 
 """
 list your path url at bottom
@@ -261,6 +362,17 @@ async def read(
     return await ob_data.read(
         orderby, limit, offset, filter, company_id, cabang_id, is_cabang, is_pusat
     )
+
+
+@app.get("/api/f_trans/c_trans_inventory_detail/export_excel")
+async def read(
+    company_id: int = Query(None, alias="$company_id"),
+    cabang_id: int = Query(None, alias="$cabang_id"),
+    is_cabang: bool = Query(None, alias="$is_cabang"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
+):
+    ob_data = c_trans_inventory_detail()
+    return await ob_data.export_excel(company_id, cabang_id, is_cabang, is_pusat)
 
 
 @app.get("/api/f_trans/c_trans_inventory_detail/read_product")
