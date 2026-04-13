@@ -303,8 +303,8 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         return data
 
     async def get_id_trans_kode(self, company_id, cabang_id, kode_trans, tahun, bulan):
-        # bulan = datetime.now().month
-        # tahun = datetime.now().year
+        bulan_ = datetime.today().month
+        tahun_ = datetime.today().year
 
         sql_kode = (
             f"""SELECT kode FROM master_company WHERE id_company = {company_id}"""
@@ -315,7 +315,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                             LPAD( CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ), 4, '0' ) AS current_no_urut_convert,
                             CAST ( COALESCE ( MAX ( no_urut ), 0 ) + 1 AS VARCHAR ( 32 ) ) AS current_no_urut 
                         FROM trans_inventory_subsidiary_sales_order_header
-                        WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal_create) = {tahun} AND DATE_PART('month', tanggal_create) = {bulan}"""
+                        WHERE company_id = {company_id} AND cabang_id = {cabang_id} AND DATE_PART('year', tanggal_create) = {tahun_} AND DATE_PART('month', tanggal_create) = {bulan_}"""
         no_urut = await self.db.executeToDict(sql_no_urut)
         # print(no_urut[0]['current_no_urut_convert'])
 
@@ -326,9 +326,9 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             + "."
             + kode_trans
             + "."
-            + str(tahun)
+            + str(tahun_)
             + "."
-            + str(str(bulan).zfill(2) + "." + no_urut[0]["current_no_urut_convert"])
+            + str(str(bulan_).zfill(2) + "." + no_urut[0]["current_no_urut_convert"])
         )
 
         data_kode = {
