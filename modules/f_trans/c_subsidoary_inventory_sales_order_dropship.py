@@ -32,6 +32,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         filter,
         company_id=None,
         cabang_id=None,
+        is_pusat=False,
         filter_other="",
         filter_other_conj="",
     ):
@@ -44,7 +45,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
                 filter_other = f"order_type ='dropship'"
                 filter_other_conj = f"AND"
 
-            if company_id == 2 and cabang_id == 11:
+            if company_id != 1 and is_pusat == True:
                 filter_other = (
                     f" zz.company_id = '{company_id}' AND order_type ='dropship'"
                 )
@@ -984,7 +985,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             is_range_where = " AND tanggal >= '" + tanggal_awal + "'"
 
         where = (
-            "order_type= 'dropship' and status_release = true and approval_status = 3 and company_id = "
+            "order_type= 'dropship' and status_release = true  and company_id = "
             + company_id
             + " AND cabang_id = "
             + cabang_id
@@ -996,7 +997,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         if int(company_id) == 1 and int(cabang_id) == 1:
             where = (
-                "order_type= 'dropship' and status_release = true and approval_status = 3  and tanggal <= '"
+                "order_type= 'dropship' and status_release = true   and tanggal <= '"
                 + tanggal_akhir
                 + "'"
                 + is_range_where
@@ -1004,7 +1005,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
         elif int(company_id) != 1 and is_pusat == True:
             where = (
-                "order_type= 'dropship' and status_release = true and approval_status = 3 and company_id = "
+                "order_type= 'dropship' and status_release = true  and company_id = "
                 + company_id
                 + "AND tanggal <= '"
                 + tanggal_akhir
@@ -1138,6 +1139,12 @@ class c_subsidiary_inventory_sales_order_dropship(object):
         return wb
 
     async def request_approve(self, data):
+        validate = await self.validate_release(data["id_trans"])
+        if validate > 0:
+            raise HTTPException(
+                400,
+                ("The error is: ", "Data sudah di release, mohon muat ulang halaman"),
+            )
 
         await self.paid_payment.validasi_paid_payment(data)
 
@@ -1191,6 +1198,13 @@ class c_subsidiary_inventory_sales_order_dropship(object):
             print(e)
             raise HTTPException(400, ("The error is: ", str(e)))
 
+    async def validate_release(self, id_trans):
+
+        sql = f"""SELECT id_trans from trans_inventory_subsidiary_sales_order_header where id_trans = '{id_trans}' and status_release = true and (approval_status = 1 or approval_status = 4) """
+
+        data = await self.db.executeToDict(sql)
+        return len(data)
+
     async def validasi_approval(self, salesman):
 
         sql = f"""SELECT id from master_approval A
@@ -1243,9 +1257,12 @@ async def read(
     filter: str = Query(None, alias="$filter"),
     company_id: int = Query(None, alias="$company_id"),
     cabang_id: int = Query(None, alias="$cabang_id"),
+    is_pusat: bool = Query(None, alias="$is_pusat"),
 ):
     ob_data = c_subsidiary_inventory_sales_order_dropship()
-    return await ob_data.read(orderby, limit, offset, filter, company_id, cabang_id)
+    return await ob_data.read(
+        orderby, limit, offset, filter, company_id, cabang_id, is_pusat
+    )
 
 
 @app.get("/api/f_trans/c_subsidiary_inventory_sales_order_dropship/read_produk")
