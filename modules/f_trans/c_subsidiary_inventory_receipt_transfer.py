@@ -586,8 +586,8 @@ class c_subsidiary_inventory_receipt_transfer(object):
             INSERT INTO "public"."trans_inventory_detail_mutasi" ("produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate", "in_out", "mutasi_type", "id_references", "tabel_reference", "tanggal", "stock_condition") 
             SELECT
                     bb.produk_id,
-                    aa.company_id,
-                    aa.cabang_id,
+                    bb.company_id,
+                    bb.cabang_id,
                     bb.qty,
                     bb.harga_satuan,
                     bb.harga_total,
@@ -617,8 +617,8 @@ class c_subsidiary_inventory_receipt_transfer(object):
             INSERT INTO "public"."trans_inventory_detail_mutasi" ("produk_id", "company_id", "cabang_id", "qty", "harga_satuan", "harga_total", "updateindb", "userupdate", "in_out", "mutasi_type", "id_references", "tabel_reference", "tanggal", "stock_condition") 
                 SELECT
                 bb.produk_id,
-                aa.company_id,
-                aa.cabang_id,
+                bb.company_id,
+                bb.cabang_id,
                 bb.qty,
                 bb.harga_satuan,
                 bb.harga_total,
