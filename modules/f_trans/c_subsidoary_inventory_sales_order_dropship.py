@@ -1200,7 +1200,7 @@ class c_subsidiary_inventory_sales_order_dropship(object):
 
     async def validate_release(self, id_trans):
 
-        sql = f"""SELECT id_trans from trans_inventory_subsidiary_sales_order_header where id_trans = '{id_trans}' and status_release = true and (approval_status = 1 or approval_status = 4) """
+        sql = f"""SELECT id_trans from trans_inventory_subsidiary_sales_order_header where id_trans = '{id_trans}' and status_release = true and (approval_status = 1 or approval_status = 3) """
 
         data = await self.db.executeToDict(sql)
         return len(data)
