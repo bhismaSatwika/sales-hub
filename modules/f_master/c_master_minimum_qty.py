@@ -94,16 +94,24 @@ class c_master_minimum_qty(object):
             raise HTTPException(400, ("The error is: ", str(e)))
         return message
 
-    async def get_min_max_qty(self, produk_id, order_type):
+    async def get_min_max_qty(self, produk_id, order_type, company_id, cabang_id):
 
-        sql = f"""SELECT
+        sql = f"""
+            SELECT
         COALESCE(MAX(CASE WHEN min_max = 'max' THEN qty END), 0) AS max_qty,
         COALESCE(MAX(CASE WHEN min_max = 'min' THEN qty END), 0) AS min_qty
-        FROM master_minimum_qty
-        WHERE produk_id = {produk_id}
-        AND status_release = TRUE
-        AND status_aktif = TRUE
-        AND order_type = '{order_type}';"""
+        FROM
+        "public"."master_minimum_qty"
+        A LEFT JOIN master_company_cabang B ON A.unit_geografis = B.unit_geografis 
+        WHERE
+        id_company = {company_id} 
+        AND id_cabang = {cabang_id} 
+        AND produk_id = {produk_id} 
+        AND order_type = '{order_type}'
+        AND A.status_release = TRUE
+        AND A.status_aktif = TRUE
+
+"""
 
         res = await self.db.executeToDict(sql)
         result = res[0]
@@ -225,9 +233,9 @@ async def get_minimum_qty(id_produk):
 
 
 @app.get("/api/f_master/c_master_minimum_qty/get_min_max_qty")
-async def get_min_max_qty(id_produk, order_type):
+async def get_min_max_qty(id_produk, order_type, company_id, cabang_id):
     ob_data = c_master_minimum_qty()
-    return await ob_data.get_min_max_qty(id_produk, order_type)
+    return await ob_data.get_min_max_qty(id_produk, order_type, company_id, cabang_id)
 
 
 @app.post("/api/f_master/c_master_minimum_qty/release")
